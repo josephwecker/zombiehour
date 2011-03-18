@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# In a shell
+erl -pa ebin -run zhandler start 8080
+
+# Detached (to finish, see `erl -man erl`)
+# erl -pa ebin -noshell -run zhandler start 8080
