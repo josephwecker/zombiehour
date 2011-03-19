@@ -92,7 +92,7 @@ do_loop( Req, Count) ->
   Script = lists:concat(["<script type='text/javascript'>$('#other').html('", Count, "');</script>"]),
   Req:stream(send_msg(Script)),
   NewCount = Count + 1,
-  case NewCount > 100 of
+  case NewCount > 10 of
     true -> 
       Req:stream(close);
     false -> 
