@@ -2,13 +2,13 @@
 -behavior(gen_server).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([start/1, stop/0]).
--export([do_loop/2]).
 
 start(Attrs) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, Attrs, []).
 
 stop() ->
-	gen_server:cast(?MODULE, stop).
+	gen_server:cast(zmaster, stop),
+	gen_server:cast(zhandler, stop).
 
 init([Port]) ->
   % trap_exit -> this gen_server needs to be supervised
@@ -16,13 +16,21 @@ init([Port]) ->
   % start misultin & set monitor
   misultin:start_link([{port, Port}, {loop, fun(Req) -> handle_http(Req) end}]),
   erlang:monitor(process, misultin),
-  {ok, Port}.
+  ConnectionTable = ets:new(connections, [set]),
+  {ok, _Master} = zmaster:start(ConnectionTable),
+  {ok, [ConnectionTable, Port]}.
 
 handle_call(_Request, _From, State) ->
   {reply, undefined, State}.
 
 handle_cast(stop, State) ->
   {stop, normal, State};
+
+handle_cast({add_connection, Cookie, Pid}, [Table, _] = State) ->
+  ets:insert(Table, {Cookie, Pid}),
+  io:format("~p~n", ["It Workds"]),
+  Pid ! "hello",
+  {noreply, State};
 
 % handle_cast generic fallback (ignore)
 handle_cast(_Msg, State) ->
@@ -45,25 +53,10 @@ code_change(_OldVsn, State, _Extra) ->
 
 % End GenServer Functions
 
-
 handle_http(Req) ->
-  io:format("~p~n", [Req]),
+  %io:format("~p~n", [Req]),
+  io:format("~p~n", [Req:get(headers)]),
 	handle(Req:get(method), Req:resource([lowercase, urldecode]), Req).
-
-
-handle('GET', ["command_me"], Req) ->
-	Req:stream(head, [{"Content-Type", "text/plain"}]),
-	Req:stream("1"),
-	Req:stream("1.5"),
-	timer:sleep(5000),
-	Req:stream("2"),
-	timer:sleep(5000),
-	Req:stream("3"),
-	Req:stream(close);
-
-handle('GET', ["command_thee"], Req) ->
-  io:format("Ah, so you want me to ~p~n", [Req]),
-  Req:ok([{"Content-Type","text/plain"}], "Fine.");
 
 handle('GET', ["test"], Req) ->
 	Req:stream(head, [{"Content-Type", "text/html"}]),
@@ -78,24 +71,25 @@ handle('GET', ["test"], Req) ->
 
 handle('GET', ["test2"], Req) ->
 	Req:stream(head, [{"Content-Type", "text/html"}]),
-  Req:stream(send_msg("<div id='other'>hi</div><script src='http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js' type='text/javascript'></script>")),
-  do_loop( Req, 0 );
+  Req:stream(send_msg("<div id='other'>hi</div><script src='http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js' type='text/javascript'></script>"));
+
+handle('GET', ["test3"], Req) ->
+	Req:stream(head, [{"Content-Type", "text/html"}]),
+  {'Cookie', Cookie} = lists:keyfind('Cookie', 1, Req:get(headers)),
+  gen_server:cast(?MODULE, {add_connection, Cookie, self()}),
+  service_loop(Req);
 
 handle(_,_,Req) ->
 	Req:respond(404, [{"Content-Type", "text/plain"}], "Page not found.").
 
+service_loop(Req) ->
+  receive
+    close ->
+      Req:stream(close);
+    Msg ->
+      Req:stream(send_msg(Msg)),
+      service_loop(Req)
+  end.
+
 send_msg( Msg ) ->
   string:left(Msg, 1024, $\n).
-
-do_loop( Req, Count) ->
-  io:format("~p~n", [Count]),
-  Script = lists:concat(["<script type='text/javascript'>$('#other').html('", Count, "');</script>"]),
-  Req:stream(send_msg(Script)),
-  NewCount = Count + 1,
-  case NewCount > 10 of
-    true -> 
-      Req:stream(close);
-    false -> 
-      timer:sleep(200),
-      do_loop(Req, NewCount)
-  end.

@@ -4,4 +4,5 @@ sys.path.append('.build_utils')
 from build_utils import *
 
 erlc('zhandler')
-#erlc('zmaster')
+erlc('zmaster')
+erlc('tick')
