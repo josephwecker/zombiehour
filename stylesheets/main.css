@@ -1,0 +1,46 @@
+body {
+	background-color: #101010;
+	font-family: 'ArchitectsDaughterRegular';
+	font-size: 12;
+	color: #ccbbaa;
+}
+
+div { 
+	background-color: #202020;
+	padding: 10px;
+	margin:1px;
+}
+
+#header {
+}
+#sys_nav {
+	position: absolute;
+	right: 20px;
+	top: 10px;
+}
+
+h1 {
+	color: #bb1010;
+	font-size: 60;
+	font-family: 'StamPeteRegular';
+	margin:5px;
+}
+
+h2 {
+	color: #707070;
+	font-size: 40;
+	font-family: 'DowncomeRegular';
+	font-weight: normal;
+}
+
+h3 {
+	font-size: 30;
+	font-family: '28DaysLaterRegular';
+}
+
+a { 
+	color: #bb1010;
+	font-family: 'DowncomeRegular';
+	font-size: 20;
+	text-decoration: none;
+}
