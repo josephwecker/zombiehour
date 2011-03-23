@@ -1,30 +1,41 @@
 
-function createXMLHttpRequest() {
-  try { return new ActiveXObject("Msxml2.XMLHTTP");    } catch(e) {}
-  try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch(e) {}
-  try { return new XMLHttpRequest();                   } catch(e) {}
-  alert("XMLHttpRequest not supported");
-  return null;
+// hotkey assignments:
+$(document).bind("keydown", "return", toggle_chat);
+//
+
+function getUrlVars() {
+    var vars = [], hash;
+    var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+    for(var i = 0; i < hashes.length; i++) {
+        hash = hashes[i].split('=');
+        vars.push(hash[0]);
+        vars[hash[0]] = hash[1];
+    }
+    return vars;
 }
 
-var xReq = createXMLHttpRequest();
+function toggle_chat() {
+  var input = $('#chat_input');
+  var chat_msg = getUrlVars()['name']  + ': ' + input.val();
+  if (input.css('display') == 'none') {
+    input.css('display', 'inline');
+    input.trigger('focus');
+  } else {
+    input.css('display', 'none');
+    $.ajax({  
+      type: "POST",  
+      url: "game/sag",  
+      data: 'input=' + chat_msg
+    });  
+    input.val("");
+  }
+}
 
-$(document).ready(function() {
-    setInterval(xReqCheck, 100);
-    xReq.open('GET', 'http://localhost:8080/test2', true);
-    xReq.onreadystatechange = function() {
-      if (xReq.readyState==4) { alert("connection closed"); }
-    }
-    xReq.send();
-});
-
-function xReqCheck() {
-  //var fullResponse = xhReq.responseText;
-  //var responsePatt = I/$/;
-  //if (fullResponse.match(responsePatt)) { // At least one full response so far
-    //var mostRecentDigit = fullResponse.replace(responsePatt, "$2");
-
-    $("#other").append('i');
-    $("#other").append(xReq.responseText);
-  //}
+function recieve_data() {
+  data = $('#data_stream').contents().find('#data').html();
+  if( data != null ) {
+    $('#result').append( data + '<br/>' );
+  }
+  $('#data_stream').attr('src', 'game/test4?'+(Math.random()*1000000));
+  //window.frames["data_stream"].location.reload();
 }

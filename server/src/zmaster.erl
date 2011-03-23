@@ -19,12 +19,15 @@ handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
-handle_cast(tick, {Table, _} = State) ->
-  broadcast("Another", Table),
+handle_cast(tick, State) ->
+  {noreply, State};
+
+handle_cast({broadcast, Msg}, {Table, _} = State) ->
+  broadcast(Msg, Table),
   {noreply, State};
 
 handle_cast(Msg, State) ->
-  io:format("Actually: ~p~n",[Msg]),
+  io:format("~p~n",[Msg]),
   {noreply, State}.
 
 handle_info(_Info, State) ->
@@ -38,10 +41,9 @@ code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
 broadcast(Msg) -> 
-  Table = gen_server:call(self(), table),
-  broadcast(Msg, Table).
+  gen_server:cast(?MODULE, {broadcast, Msg}).
 
-broadcast(Msg, Table) -> 
-  List = ets:tab2list(Table),
-  Pids = [ Pid || { _, Pid } <- List ],
+broadcast(Msg, Table) ->
+  List = ets:match(Table, { '_', '$1'}),
+  Pids = [ Pid || [Pid] <- List ],
   lists:map( fun(Pid) -> Pid ! Msg end, Pids).

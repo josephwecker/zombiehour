@@ -17,8 +17,8 @@ init([Port]) ->
   misultin:start_link([{port, Port}, {loop, fun(Req) -> handle_http(Req) end}]),
   erlang:monitor(process, misultin),
   ConnectionTable = ets:new(connections, [set]),
-  {ok, _Master} = zmaster:start(ConnectionTable),
-  {ok, [ConnectionTable, Port]}.
+  {ok, Master} = zmaster:start(ConnectionTable),
+  {ok, [ConnectionTable, Port, Master]}.
 
 handle_call(_Request, _From, State) ->
   {reply, undefined, State}.
@@ -26,10 +26,9 @@ handle_call(_Request, _From, State) ->
 handle_cast(stop, State) ->
   {stop, normal, State};
 
-handle_cast({add_connection, Cookie, Pid}, [Table, _] = State) ->
+handle_cast({add_connection, Cookie, Pid}, [Table, _, _] = State) ->
   ets:insert(Table, {Cookie, Pid}),
-  io:format("~p~n", ["It Workds"]),
-  Pid ! "hello",
+  %Pid ! "hello",
   {noreply, State};
 
 % handle_cast generic fallback (ignore)
@@ -60,24 +59,41 @@ handle_http(Req) ->
 
 handle('GET', ["test"], Req) ->
 	Req:stream(head, [{"Content-Type", "text/html"}]),
-  Req:stream(send_msg("1<br />")),
+  Req:stream(ready_msg("1<br />")),
 	timer:sleep(1000),
-  Req:stream(send_msg("1.5<br />")),
+  Req:stream(ready_msg("1.5<br />")),
 	timer:sleep(1000),
-  Req:stream(send_msg("2<br />")),
+  Req:stream(ready_msg("2<br />")),
 	timer:sleep(1000),
-  Req:stream(send_msg("<script type='text/javascript'>alert('hi');</script>")),
+  Req:stream(ready_msg("<script type='text/javascript'>alert('hi');</script>")),
   Req:stream(close);
+
+handle('POST', ["sag"], Req) ->
+	Req:respond(204, [], ""),
+  Params = Req:parse_post(),
+  Gesagt = proplists:get_value("input", Params),
+  zmaster:broadcast(Gesagt);
+
+handle('GET', ["test204"], Req) ->
+	Req:respond(204, [], "");
 
 handle('GET', ["test2"], Req) ->
 	Req:stream(head, [{"Content-Type", "text/html"}]),
-  Req:stream(send_msg("<div id='other'>hi</div><script src='http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js' type='text/javascript'></script>"));
+  Req:stream(ready_msg("<div id='other'>hi</div><script src='http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js' type='text/javascript'></script>"));
 
 handle('GET', ["test3"], Req) ->
 	Req:stream(head, [{"Content-Type", "text/html"}]),
   {'Cookie', Cookie} = lists:keyfind('Cookie', 1, Req:get(headers)),
   gen_server:cast(?MODULE, {add_connection, Cookie, self()}),
   service_loop(Req);
+
+handle('GET', ["test4"], Req) ->
+  {'Cookie', Cookie} = lists:keyfind('Cookie', 1, Req:get(headers)),
+  gen_server:cast(?MODULE, {add_connection, Cookie, self()}),
+  receive
+    Msg ->
+      Req:respond(200, [{"Content-Type", "text/html"}], ready_msg2( Msg ))
+  end;
 
 handle(_,_,Req) ->
 	Req:respond(404, [{"Content-Type", "text/plain"}], "Page not found.").
@@ -87,9 +103,14 @@ service_loop(Req) ->
     close ->
       Req:stream(close);
     Msg ->
-      Req:stream(send_msg(Msg)),
+      Req:stream(ready_msg(Msg)),
       service_loop(Req)
   end.
 
-send_msg( Msg ) ->
-  string:left(Msg, 1024, $\n).
+ready_msg2( Msg ) ->
+  ["<div id='data'>", Msg, "</div>"].
+
+ready_msg( Msg ) ->
+  NewMsg = lists:concat([ Msg, '<b /><script>alert("hi");</script>j<img src=""></img>']),
+  string:left(NewMsg, 4096, $\n).
+  %string:left(NewMsg, 2048, $\n).
