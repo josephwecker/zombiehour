@@ -3,6 +3,9 @@ import os,sys
 sys.path.append('.build_utils')
 from build_utils import *
 
+erlc('server')
 erlc('zhandler')
-erlc('zmaster')
+erlc('chandler')
+erlc('character')
+erlc('scenario')
 erlc('tick')

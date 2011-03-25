@@ -1,3 +1,3 @@
 To rebuild / restart server while in the shell:
 
-zhandler:stop(), io:format("~p~n",[os:cmd("./build")]), l(zhandler), l(zmaster), l(tick), zhandler:start([8080]).
+zhandler:stop(), io:format("~p~n",[os:cmd("./build")]), l(zhandler), l(chandler), l(character), l(scenario), l(tick), zhandler:start().
