@@ -52,3 +52,13 @@ function recieve_data() {
   }
   $('#data_stream').attr('src', 'data?'+(Math.random()*1000000));
 }
+
+$(document).ready(function(){
+    for (r=1; r<=25; r++) {
+      for(c = 1; c <= 25; c++) {
+        $("#map").append('<img src="/images/transparent.png" id="r'+r+'c'+c+'"/>');
+      }
+      $("#map").append('<br />');
+    }
+});
+

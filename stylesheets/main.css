@@ -44,3 +44,10 @@ a {
 	font-size: 20;
 	text-decoration: none;
 }
+
+#map img {
+	width:16px;
+	height:16px;
+	background:url(/images/tiles.png) 0px 16px;
+}
+#map img. {
