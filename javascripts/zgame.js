@@ -35,6 +35,7 @@ function close_chat() {
     post("say", input.val());
     input.val("");
   }
+  input.trigger('blur');
 }
 
 function post(param, value) {
