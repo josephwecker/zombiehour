@@ -5,7 +5,6 @@ from build_utils import *
 
 erlc('server')
 erlc('zhandler')
-erlc('chandler')
 erlc('character')
 erlc('scenario')
 erlc('tick')

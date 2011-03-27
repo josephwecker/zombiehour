@@ -6,28 +6,57 @@
 create(Attrs) ->
   gen_server:start_link(?MODULE, Attrs, []).
 
-init([Chandler, Scenario]) ->
+init([Name, Scenario]) ->
+  Feedback = empty,
   gen_server:cast(Scenario, {add_character, self()}),
-{ok, {Chandler, Scenario}}.
+  {ok, {{Name, Feedback}, inactive, Scenario}}.
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
-handle_cast(tick, {Chandler, _} = State) ->
-  gen_server:cast(Chandler, tick),
+handle_cast(tick, {Character, Address, Scenario}) ->
+  {Name, Feedback} = Character,
+  case Address of
+    inactive ->
+      NewFeedback = Feedback;
+    Address ->
+      case Feedback of
+        empty ->
+          %Address ! "hi";
+          NewFeedback = Feedback;
+        Msg ->
+          Address ! Msg,
+          NewFeedback = empty
+      end
+  end,
+  {noreply, {{Name, NewFeedback}, Address, Scenario}};
+
+handle_cast({hear, Msg}, {Attr, Address, Scenario}) ->
+  {Name, Feedback} = Attr,
+  case Feedback of
+    empty ->
+      NewFeedback = lists:concat([Msg, "<br/>\n"]);
+    Feedback ->
+      NewFeedback = lists:concat([Feedback, Msg, "<br/>\n"])
+  end,
+  {noreply, {{Name, NewFeedback}, Address, Scenario}};
+
+handle_cast({return_address, Address}, State) ->
+  {Attr, _, Scenario} = State,
+  {noreply, {Attr, Address, Scenario}};
+
+handle_cast({post, {Param, Value}}, {{Name,_}, _, Scenario} = State) ->
+  case Param of
+    "say" ->
+      gen_server:cast(Scenario, {say, lists:concat([Name, ": ", Value])});
+    Param ->
+      io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
+  end,
   {noreply, State};
 
-handle_cast({say, Msg}, {Chandler, Scenario}) ->
-  gen_server:cast(Scenario, {say, Msg}),
-  {noreply, {Chandler, Scenario}};
-
-handle_cast({hear, Msg}, {Chandler, Scenario}) ->
-  gen_server:cast(Chandler, {hear, Msg}),
-  {noreply, {Chandler, Scenario}};
-
 handle_cast(Msg, State) ->
-  io:format("~p~n",[Msg]),
+  io:format("cast received: ~p, When state was: ~p~n",[Msg, State]),
   {noreply, State}.
 
 handle_info(_Info, State) ->

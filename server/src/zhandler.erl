@@ -57,7 +57,7 @@ handle_cast(create_scenario, {Table, List}) ->
 
 handle_cast({create_character, {Cookie, Name}}, State) ->
   {_Table, [Scenario]} = State,
-  {ok, Character} = chandler:create([Name, Scenario]),
+  {ok, Character} = character:create([Name, Scenario]),
   %ets:insert(Table, {Cookie, Character, inactive}),
   gen_server:cast(?MODULE, {update_table, {character_address, {Cookie, Character}}}),
   {noreply, State};
@@ -117,7 +117,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 handle_http(Req) ->
   %io:format("~p~n", [Req]),
-  io:format("~p - ~p~n", [Req:get(method), Req:resource([lowercase, urldecode])]),
+  %io:format("~p - ~p~n", [Req:get(method), Req:resource([lowercase, urldecode])]),
   %io:format("~p~n", [Req:get(headers)]),
   case lists:keyfind('Cookie', 1, Req:get(headers)) of
     false -> 
@@ -141,7 +141,7 @@ handle('GET', [], Cookie, Req) ->
           Req:file("game.html")
       end;
     false -> 
-      io:format("~p~n", [ets:tab2list(Table)]),
+      %io:format("~p~n", [ets:tab2list(Table)]),
       Req:file("menu.html")
   end;
 
@@ -152,11 +152,11 @@ handle('POST', [], Cookie, Req) ->
 
 handle('POST', ["data"], Cookie, Req) ->
 	Req:respond(204, [], ""),
-  Input = proplists:get_value("input", Req:parse_post()),
+  Params = Req:parse_post(),
   Table = gen_server:call(?MODULE, get_table),
   Result = ets:lookup(Table, Cookie),
   [{_, Character, _}] = Result,
-  gen_server:cast(Character, Input);
+  lists:foreach(fun(Param) -> gen_server:cast(Character, {post, Param}) end, Params);
 
 handle('GET', ["data"], Cookie, Req) ->
   gen_server:cast(?MODULE, {update_table, {return_address, {Cookie, self()}}}),
