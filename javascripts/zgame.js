@@ -50,6 +50,7 @@ function recieve_data() {
   data = $('#data_stream').contents().find('#data').html();
   if( data != null ) {
     $('#result').append( data );
+    $('#result').animate({scrollTop: $('#result')[0].scrollHeight});
   }
   $('#data_stream').attr('src', 'data?'+(Math.random()*1000000));
 }
@@ -61,5 +62,8 @@ $(document).ready(function(){
       }
       $("#map").append('<br />');
     }
+    $('#r13c13').addClass('player');
 });
+
+
 

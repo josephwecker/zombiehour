@@ -45,9 +45,42 @@ a {
 	text-decoration: none;
 }
 
+#map {
+  float: left;
+  width:400;
+}
+
 #map img {
 	width:16px;
 	height:16px;
-	background:url(/images/tiles.png) 0px 16px;
+	background:url(/images/tiles.png);
 }
-#map img. {
+
+#map img.empty  { background-position: -32px -0px ; }
+#map img.player { background-position: -32px -16px; }
+#map img.wall   { background-position: -16px -16px; }
+#map img.space  { background-position: -0px  -16px; }
+#map img.rwall  { background-position: -16px -0px ; }
+#map img.rspace { background-position: -0px  -0px ; }
+
+#result {
+  float: left;
+	width: 400px;
+	height: 380px;
+	left:300px;
+	padding: 20px;
+	overflow: auto;
+}
+
+#chat_input {
+  position: absolute;
+  background: #202020;
+  border: solid 2px #101010;
+	color: #ccbbaa;
+  padding:4px;
+  font-family: 'ArchitectsDaughterRegular';
+  width:400px;
+  top: 410px;
+  left:220px;
+  display: none;
+}

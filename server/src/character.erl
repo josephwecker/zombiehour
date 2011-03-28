@@ -6,54 +6,70 @@
 create(Attrs) ->
   gen_server:start_link(?MODULE, Attrs, []).
 
+
 init([Name, Scenario]) ->
   C = dict:new(),
   Ch = dict:store(id, self(), C),
   Cha = dict:store(tag, Name, Ch),
   Char = dict:store(feedback, empty, Cha),
+  Chara = dict:store(known_tiles, [], Char),
   gen_server:cast(Scenario, {add_character, self()}),
-  {ok, {Char, inactive, Scenario}}.
+  Feedback = {false, { {false, []}, {false, []} }},
+  Addresses = {inactive, Scenario},
+  {ok, {Chara, Feedback, Addresses}}.
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
-handle_cast(tick, {Character, Address, Scenario}) ->
-  Feedback = dict:fetch(feedback, Character),
+handle_cast(tick, {C, Feedback, {Address, S}}) ->
+  % Things that need to be flushed to the browser when updates are made:
+  %   Map details
+  %   Feedback Log
+  %   List of "Sounds"
   case Address of
     inactive ->
-      ok;
+      NewFeedback = Feedback;
     Address ->
       case Feedback of
-        empty ->
-          ok;
-        Msg ->
+        {false, _List} ->
+          NewFeedback = Feedback;
+        {true, {{true, Msg}, _}} ->
           Address ! Msg,
-          gen_server:cast(self(), {update_character, {feedback, empty}})
+          gen_server:cast(self(), {update_character, {feedback, empty}}),
+          NewFeedback = {false, {{false, []}, {false, []}}}
       end
   end,
-  {noreply, {Character, Address, Scenario}};
+  {noreply, {C, NewFeedback, {Address, S}}};
 
-handle_cast({update_character, {Attr, Value}}, {Character, Address, Scenario}) ->
-  NewCharacter = dict:store(Attr, Value, Character),
-  {noreply, {NewCharacter, Address, Scenario}};
+handle_cast({add_location, Location}, {Character, F, A}) ->
+  NewCharacter = dict:store(location, Location, Character),
+  {noreply, {NewCharacter, F, A}};
 
-handle_cast({hear, Msg}, {Character, Address, Scenario}) ->
-  Feedback = dict:fetch(feedback, Character),
-  case Feedback of
-    empty ->
-      NewFeedback = lists:concat([Msg, "<br/>\n"]);
-    Feedback ->
-      NewFeedback = lists:concat([Feedback, Msg, "<br/>\n"])
+handle_cast({update_character, {Attr, Value}}, {Character, F, A}) ->
+  case Attr of
+    location ->
+      OldLocation = dict:fetch(location, Character),
+      OldKnownTiles = dict:fetch(known_tiles, Character),
+      KnownTiles = lists:append(OldKnownTiles, [OldLocation]),
+      Character2 = dict:store(known_tiles, KnownTiles, Character),
+      io:format("Known Tiles: ~p~n",[KnownTiles]),
+      NewCharacter = dict:store(Attr, Value, Character2);
+    _ ->
+      NewCharacter = dict:store(Attr, Value, Character)
   end,
-  gen_server:cast(self(), {update_character, {feedback, NewFeedback}}),
-  {noreply, {Character, Address, Scenario}};
+  {noreply, {NewCharacter, F, A}};
 
-handle_cast({return_address, Address}, State) ->
-  {Attr, _, Scenario} = State,
-  {noreply, {Attr, Address, Scenario}};
+handle_cast({hear, Msg}, {C, Feedback, A}) ->
+  {_, {{_,Old}, Map}} = Feedback,
+  NewMsg = lists:concat([Old, Msg, "<br/>\n"]),
+  NewFeedback = {true, {{true, NewMsg}, Map}},
+  {noreply, {C, NewFeedback, A}};
 
-handle_cast({post, {Param, Value}}, {Character, _, Scenario} = State) ->
+handle_cast({return_address, Address}, {C, F, {_, S}}) ->
+  {noreply, {C, F, {Address, S}}};
+
+handle_cast({post, {Param, Value}}, {Character, _, {_, Scenario}} = State) ->
   Name = dict:fetch(tag, Character),
   case Param of
     "say" ->
