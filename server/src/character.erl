@@ -34,11 +34,16 @@ build_map(Character) ->
                   end;
                 true ->
                   {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                  case dict:fetch(blocking, Tile) of
-                    true ->
-                      "2,";
-                    false ->
-                      "1,"
+                  case dict:fetch(characters, Tile) of
+                    []->
+                      case dict:fetch(blocking, Tile) of
+                        true ->
+                          "2,";
+                        false ->
+                          "1,"
+                      end;
+                    [_] ->
+                      "5, "
                   end
               end
           end,

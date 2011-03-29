@@ -84,12 +84,12 @@ function update_map(mapdata) {
         clientTile.addClass('rspace');
       } else if( maptile == "4" ) {
         clientTile.addClass('rwall');
+      } else if( maptile == "5" ) {
+        clientTile.addClass('player');
       }
       i = i + 1;
     }
   }
-  $('#r13c13').removeClass();
-  $('#r13c13').addClass('player');
 }
   
 

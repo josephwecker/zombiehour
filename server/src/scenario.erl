@@ -67,16 +67,25 @@ handle_cast({walk, {Character, Direction}}, {Chars, Map}) ->
   Location = dict:fetch(location, Character),
   Edge = tile:dir_to_key(Location, Direction),
   Result = digraph:edge(Map, Edge),
-  {_, _, NewLocation, _} = Result,
-  % This is just the updated feedback stuffs...
-  {NewLocation, TileData} = digraph:vertex(Map, NewLocation),
-  NewX = dict:fetch(x, TileData),
-  NewY = dict:fetch(y, TileData),
-  Message = lists:concat(["You're now at; ", NewX, ",", NewY, "<br/>"]),
-  gen_server:cast(dict:fetch(id, Character), {update_character, {feedback, Message}}),
-  % end of feedback stuffs
-  Pid = dict:fetch(id, Character),
-  gen_server:cast(Pid, {update_character, {location, NewLocation}}),
+  {_, _, DesiredLocation, _} = Result,
+  {DesiredLocation, TileData} = digraph:vertex(Map, DesiredLocation),
+  case dict:fetch(blocking, TileData) of
+    true ->
+      NewLocation = Location;
+    false ->
+      NewLocation = DesiredLocation,
+      % This is just the updated feedback stuffs...
+      %{NewLocation, TileData} = digraph:vertex(Map, NewLocation),
+      %NewX = dict:fetch(x, TileData),
+      %NewY = dict:fetch(y, TileData),
+      %Message = lists:concat(["You're now at; ", NewX, ",", NewY, "<br/>"]),
+      %gen_server:cast(dict:fetch(id, Character), {update_character, {feedback, Message}}),
+      % end of feedback stuffs
+      Pid = dict:fetch(id, Character),
+      update_map(Map, Location, characters, {rm, Pid}),
+      update_map(Map, NewLocation, characters, {add, Pid}),
+      gen_server:cast(Pid, {update_character, {location, NewLocation}})
+  end,
   {noreply, {Chars, Map}};
 
 handle_cast({say, Msg}, {Characters, _} = State) ->
