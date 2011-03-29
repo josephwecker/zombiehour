@@ -31,7 +31,7 @@ init([]) ->
              [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
   Map = digraph:new(),
-  tile:initialize_map(Map, MapData),
+  tile:initialize_map(Map, lists:reverse(MapData)),
   {ok, {Characters, Map}}.
 
 %Tile functions... (maybe should go in separate module?)
@@ -87,7 +87,8 @@ handle_cast({add_character, Character}, {Characters, Map}) ->
   Vertices = digraph:vertices(Map),
   Location = lists:nth(random:uniform(length(Vertices)), Vertices),
   update_map(Map, Location, characters, {add, Character}),
-  gen_server:cast(Character, {add_location, Location}),
+  gen_server:cast(Character, {add_to_char, {map, Map}}),
+  gen_server:cast(Character, {add_to_char, {location, Location}}),
   NewList = lists:append(Characters,[Character]),
   {noreply, {NewList, Map}};
 

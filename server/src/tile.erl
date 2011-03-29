@@ -27,12 +27,15 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
   T2 = dict:store(y, Y, T1),
   T3 = dict:store(characters, [], T2),
   case Value of
+    0 ->
+      Tile = dict:store(blocking, true, T3);
     2 ->
       Tile = dict:store(blocking, true, T3);
     _ ->
       Tile = dict:store(blocking, false, T3)
   end,
-  %vertex = {x000y000, Tile}
+
+  %vertex = {"x000y000", Tile}
   digraph:add_vertex(Map, Key, Tile).
 
 initialize_neighbors( Tile, Map, XBound, YBound ) ->
@@ -54,7 +57,7 @@ initialize_neighbors( Tile, Map, XBound, YBound ) ->
     fun(ListItem) ->
         {Direction, NTile} = ListItem,
         Key = dir_to_key(Tile, Direction),
-        %edge   = {x000y000direction, []}
+        %edge   = {"x000y000direction", []}
         digraph:add_edge(Map, Key, Tile, NTile, [])
     end,
     List).
@@ -62,10 +65,10 @@ initialize_neighbors( Tile, Map, XBound, YBound ) ->
 coords_to_key(XInt,YInt) ->
   X = integer_to_list(XInt),
   Y = integer_to_list(YInt),
-  list_to_atom(lists:flatten(["X", X, "Y", Y ])).
+  lists:concat(["X", X, "Y", Y ]).
 
 dir_to_key(Tile, Dir) ->
-  list_to_atom(lists:flatten([atom_to_list(Tile), Dir])).
+  lists:concat([Tile, Dir]).
 
 find_bound(D, Limit) ->
   case D of

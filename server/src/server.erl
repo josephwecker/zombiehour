@@ -18,6 +18,8 @@ restart() ->
   code:load_file(scenario),
   code:purge(tile),
   code:load_file(tile),
+  code:purge(los),
+  code:load_file(los),
   code:purge(tick),
   code:load_file(tick),
   zhandler:start([8080]).

@@ -163,7 +163,7 @@ handle('GET', ["data"], Cookie, Req) ->
   receive
     Msg ->
       gen_server:cast(?MODULE, {update_table, {return_address, {Cookie, inactive}}}),
-      Req:respond(200, [{"Content-Type", "text/html"}], ["<div id='data'>", Msg, "</div>"])
+      Req:respond(200, [{"Content-Type", "application/json"}], [Msg])
   end;
 
 handle(_,_,_,Req) ->

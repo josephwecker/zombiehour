@@ -46,16 +46,56 @@ function post(param, value) {
   });
 }
 
-function recieve_data() {
-  data = $('#data_stream').contents().find('#data').html();
-  if( data != null ) {
-    $('#result').append( data );
+
+//      http://localhost/game/[object Object]
+function get_data() {
+  $.getJSON("data",
+    function(data) {
+      get_data();
+      append_log(data.msg);
+      update_map(data.map);
+    }
+  );
+};
+
+function append_log(msg) {
+  if( msg != "nil" ) {
+    $('#result').append( msg );
     $('#result').animate({scrollTop: $('#result')[0].scrollHeight});
   }
-  $('#data_stream').attr('src', 'data?'+(Math.random()*1000000));
 }
 
-$(document).ready(function(){
+function update_map(mapdata) {
+  var map = mapdata.split(",");
+   // alert(map);
+  var i = 0
+  for (r=25; r>=1; r--) {
+    for(c = 1; c <= 25; c++) {
+      maptile = map[i];
+      clientTile = $('#r'+r+'c'+c);
+      clientTile.removeClass();
+      if( maptile == "0" ) {
+        clientTile.addClass('empty');
+      } else if( maptile == "1" ) {
+        clientTile.addClass('space');
+      } else if( maptile == "2" ) {
+        clientTile.addClass('wall');
+      } else if( maptile == "3" ) {
+        clientTile.addClass('rspace');
+      } else if( maptile == "4" ) {
+        clientTile.addClass('rwall');
+      }
+      i = i + 1;
+    }
+  }
+  $('#r13c13').removeClass();
+  $('#r13c13').addClass('player');
+}
+  
+
+
+$(document).ready( function() {
+    get_data();
     for (r=1; r<=25; r++) {
       for(c = 1; c <= 25; c++) {
         $("#map").append('<img src="/images/transparent.png" id="r'+r+'c'+c+'"/>');
@@ -64,6 +104,3 @@ $(document).ready(function(){
     }
     $('#r13c13').addClass('player');
 });
-
-
-
