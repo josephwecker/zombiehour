@@ -53,6 +53,7 @@ function get_data() {
     function(data) {
       get_data();
       append_log(data.msg);
+      update_flash(data.flash);
       update_map(data.map);
     }
   );
@@ -63,6 +64,10 @@ function append_log(msg) {
     $('#result').append( msg );
     $('#result').animate({scrollTop: $('#result')[0].scrollHeight});
   }
+}
+
+function update_flash( msg ) {
+  $('#flash').html( msg );
 }
 
 function update_map(mapdata) {
@@ -102,5 +107,4 @@ $(document).ready( function() {
       }
       $("#map").append('<br />');
     }
-    $('#r13c13').addClass('player');
 });

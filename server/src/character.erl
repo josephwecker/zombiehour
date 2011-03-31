@@ -42,8 +42,8 @@ build_map(Character) ->
                         false ->
                           "1,"
                       end;
-                    [_] ->
-                      "5, "
+                    _ ->
+                      "5,"
                   end
               end
           end,
@@ -65,44 +65,57 @@ learn_tiles(Map, Tiles) ->
     end,
     Tiles)).
 
+do_request(Scenario, Character, {Action, {character, Value}}) ->
+  gen_server:cast(Scenario, {Action, {Character, Value}}).
 
 init([Name, Scenario]) ->
   C = dict:new(),
   Ch = dict:store(id, self(), C),
   Cha = dict:store(tag, Name, Ch),
-  Char = dict:store(feedback, empty, Cha),
-  Chara = dict:store(sight, 8, Char),
+  Char = dict:store(queue, [], Cha),
+  Chara = dict:store(cooldown, 0, Char),
   Charac = dict:store(visible_tiles, [], Chara),
   Charact = dict:store(known_tiles, [], Charac),
+  Characte = dict:store(sight, 8, Charact),
   gen_server:cast(Scenario, {add_character, self()}),
   Feedback = [],
   Addresses = {inactive, Scenario},
-  {ok, {Charact, Feedback, Addresses}}.
+  {ok, {Characte, Feedback, Addresses}}.
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
-handle_cast(tick, {C, Feedback, {Address, S}}) ->
-  % Things that need to be flushed to the browser when updates are made:
-  %   Map details
-  %   Feedback Log
-  %   List of "Sounds"
+handle_cast(tick, {Character, Feedback, {Address, Scenario}}) ->
+  Num = dict:fetch(cooldown, Character),
+  case Num of
+    0 ->
+      case dict:fetch(queue, Character) of
+        [] ->
+          NewCharacter = Character;
+        [Request|NewQueue] ->
+          do_request(Scenario, Character, Request),
+          NewCharacter = dict:store(queue, NewQueue, Character)
+      end;
+    Num ->
+      NewCharacter = dict:update_counter(cooldown, -1, Character)
+  end,
   case Address of
     inactive ->
       NewFeedback = Feedback;
     Address ->
-      Map = build_map(C),
+      Map = build_map(Character),
       NewFeedback = [],
       case Feedback of
         [] ->
-          Data = lists:concat(["{\"map\":\"",Map,"\",\"msg\":\"nil\"}"]);
+          Data =
+          lists:concat(["{\"map\":\"",Map,"\",\"flash\":\"",Num,"\",\"msg\":\"nil\"}"]);
         Msg ->
-          Data = lists:concat(["{\"map\":\"",Map,"\",\"msg\":\"",Msg,"\"}"])
+          Data = lists:concat(["{\"map\":\"",Map,"\",\"flash\":\"",Num,"\",\"msg\":\"",Msg,"\"}"])
       end,
       Address ! Data
   end,
-  {noreply, {C, NewFeedback, {Address, S}}};
+  {noreply, {NewCharacter, NewFeedback, {Address, Scenario}}};
 
 handle_cast({add_to_char, {Attr, Value}}, {Character, F, A}) ->
   NewCharacter = dict:store(Attr, Value, Character),
@@ -138,21 +151,42 @@ handle_cast({hear, Msg}, {C, Feedback, A}) ->
 handle_cast({return_address, Address}, {C, F, {_, S}}) ->
   {noreply, {C, F, {Address, S}}};
 
-handle_cast({post, {Param, Value}}, {Character, _, {_, Scenario}} = State) ->
-  Name = dict:fetch(tag, Character),
+handle_cast({heat_up, Amount}, {Character, F, A}) ->
+  NewCharacter = dict:update_counter(cooldown, Amount, Character),
+  {noreply, {NewCharacter, F, A}};
+
+handle_cast({post, {Param, Value}}, {Character, F, {_, Scenario} = A}) ->
   case Param of
     "say" ->
-      gen_server:cast(Scenario, {say, lists:concat([Name, ": ", Value])});
+      Request = {say, {character, Value}};
     "walk" ->
-      gen_server:cast(Scenario, {walk, {Character, Value}});
+      Request = {walk, {character, Value}};
     Param ->
+      Request = nil,
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
   end,
-  {noreply, State};
+  Cooldown = dict:fetch(cooldown, Character),
+  case Cooldown of
+    0 ->
+      NewCharacter = Character,
+      do_request(Scenario, Character, Request);
+    _ ->
+      Queue = dict:fetch(queue, Character),
+      case Queue of
+        [] ->
+          NewQueue = [Request];
+        _ ->
+          NewQueue = lists:append(Queue, [Request])
+      end,
+      NewCharacter = dict:store(queue, NewQueue, Character)
+  end,
+  {noreply, {NewCharacter, F, A}};
 
 handle_cast(Msg, State) ->
   io:format("cast received: ~p, When state was: ~p~n",[Msg, State]),
   {noreply, State}.
+
+%temp position:
 
 handle_info(_Info, State) ->
   {noreply, State}.

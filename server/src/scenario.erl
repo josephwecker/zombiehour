@@ -28,6 +28,7 @@ init([]) ->
              [0,1,1,1,1,1,2,4,4,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
              [0,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
              [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+             [0,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
              [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
   Map = digraph:new(),
@@ -71,25 +72,21 @@ handle_cast({walk, {Character, Direction}}, {Chars, Map}) ->
   {DesiredLocation, TileData} = digraph:vertex(Map, DesiredLocation),
   case dict:fetch(blocking, TileData) of
     true ->
-      NewLocation = Location;
+      ok;
     false ->
       NewLocation = DesiredLocation,
-      % This is just the updated feedback stuffs...
-      %{NewLocation, TileData} = digraph:vertex(Map, NewLocation),
-      %NewX = dict:fetch(x, TileData),
-      %NewY = dict:fetch(y, TileData),
-      %Message = lists:concat(["You're now at; ", NewX, ",", NewY, "<br/>"]),
-      %gen_server:cast(dict:fetch(id, Character), {update_character, {feedback, Message}}),
-      % end of feedback stuffs
       Pid = dict:fetch(id, Character),
-      update_map(Map, Location, characters, {rm, Pid}),
       update_map(Map, NewLocation, characters, {add, Pid}),
-      gen_server:cast(Pid, {update_character, {location, NewLocation}})
+      update_map(Map, Location, characters, {rm, Pid}),
+      gen_server:cast(Pid, {update_character, {location, NewLocation}}),
+      gen_server:cast(Pid, {heat_up, 8})
   end,
   {noreply, {Chars, Map}};
 
-handle_cast({say, Msg}, {Characters, _} = State) ->
-  lists:foreach(fun(Character) -> gen_server:cast(Character, {hear, Msg}) end, Characters),
+handle_cast({say, {Character, Msg}}, {Characters, _} = State) ->
+  Name = dict:fetch(tag, Character),
+  Output = lists:concat([Name, ": ", Msg]),
+  lists:foreach(fun(Char) -> gen_server:cast(Char, {hear, Output}) end, Characters),
   {noreply, State};
 
 handle_cast({add_character, Character}, {Characters, Map}) ->
