@@ -10,9 +10,7 @@ build_map(Character) ->
   ScenarioMap = dict:fetch(map, Character),
   VisibleTiles = dict:fetch(visible_tiles, Character),
   KnownTiles = dict:fetch(known_tiles, Character),
-  [XStr, YStr] = string:tokens(dict:fetch(location, Character), "XY"),
-  X = list_to_integer(XStr),
-  Y = list_to_integer(YStr),
+  {X,Y} = nav:position(dict:fetch(location, Character)),
   %traverse map...
   %traverse rows...
  % CharMap =
@@ -30,21 +28,11 @@ build_map(Character) ->
                     false ->
                       "0,";
                     {Key, Mem} ->
-                      [integer_to_list(Mem)|","]
+                      lists:concat([Mem,","])
                   end;
                 true ->
                   {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                  case dict:fetch(characters, Tile) of
-                    []->
-                      case dict:fetch(blocking, Tile) of
-                        true ->
-                          "2,";
-                        false ->
-                          "1,"
-                      end;
-                    _ ->
-                      "5,"
-                  end
+                  lists:concat([tile:update_tile_sym(Tile), ","])
               end
           end,
           lists:seq(X-12,X+12)))
@@ -55,12 +43,7 @@ learn_tiles(Map, Tiles) ->
   lists:sort(lists:map(
     fun(Key) ->
         {Key, Tile} = digraph:vertex(Map, Key),
-        case dict:fetch(blocking, Tile) of
-          true ->
-            Sym = 4;
-          false ->
-            Sym = 3
-        end,
+        Sym = integer_to_list(list_to_integer(tile:update_tile_sym(Tile))+8),
         {Key, Sym}
     end,
     Tiles)).
@@ -77,10 +60,11 @@ init([Name, Scenario]) ->
   Charac = dict:store(visible_tiles, [], Chara),
   Charact = dict:store(known_tiles, [], Charac),
   Characte = dict:store(sight, 8, Charact),
+  Character = dict:store(zombified, false, Characte),
   gen_server:cast(Scenario, {add_character, self()}),
   Feedback = [],
   Addresses = {inactive, Scenario},
-  {ok, {Characte, Feedback, Addresses}}.
+  {ok, {Character, Feedback, Addresses}}.
 
 handle_call(_Request, _From, State) ->
   Reply = ok,

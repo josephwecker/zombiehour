@@ -117,7 +117,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 handle_http(Req) ->
   %io:format("~p~n", [Req]),
-  %io:format("~p - ~p~n", [Req:get(method), Req:resource([lowercase, urldecode])]),
+  io:format("~p - ~p~n", [Req:get(method), Req:resource([lowercase, urldecode])]),
   %io:format("~p~n", [Req:get(headers)]),
   case lists:keyfind('Cookie', 1, Req:get(headers)) of
     false -> 

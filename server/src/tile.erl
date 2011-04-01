@@ -1,14 +1,14 @@
 -module(tile).
--export([initialize_map/2, coords_to_key/2, dir_to_key/2]).
+-export([initialize_map/2, coords_to_key/2, dir_to_key/2, update_tile_sym/1]).
 
 initialize_map(Map, MapData) ->
   lists:foreach(
     fun(RowCount) ->
-        lists:foreach(
-          fun(ColCount) ->
-              initialize_tile(Map, MapData, RowCount, ColCount)
-          end,
-          lists:seq(1,length(lists:nth(RowCount, MapData))))
+      lists:foreach(
+        fun(ColCount) ->
+            initialize_tile(Map, MapData, RowCount, ColCount)
+        end,
+        lists:seq(1,length(lists:nth(RowCount, MapData))))
     end,
     lists:seq(1,length(MapData))),
   lists:foreach(
@@ -26,13 +26,17 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
   T1 = dict:store(x, X, T),
   T2 = dict:store(y, Y, T1),
   T3 = dict:store(characters, [], T2),
+  T4 = dict:store(zombies, [], T3),
   case Value of
     0 ->
-      Tile = dict:store(blocking, true, T3);
+      T5 = dict:store(movement, false, T4),
+      Tile = dict:store(visible, false, T5);
     2 ->
-      Tile = dict:store(blocking, true, T3);
+      T5 = dict:store(movement, false, T4),
+      Tile = dict:store(visible, false, T5);
     _ ->
-      Tile = dict:store(blocking, false, T3)
+      T5 = dict:store(movement, true, T4),
+      Tile = dict:store(visible, true, T5)
   end,
 
   %vertex = {"x000y000", Tile}
@@ -83,3 +87,21 @@ find_bound(D, Limit) ->
       D2 = D + 1
   end,
   {D1, D, D2}.
+
+update_tile_sym(Tile) ->
+  case dict:fetch(zombies, Tile) of
+    []->
+      case dict:fetch(characters, Tile) of
+        []->
+          case dict:fetch(visible, Tile) of
+            true ->
+              "1";
+            false ->
+              "2"
+          end;
+        _ ->
+          "8"
+      end;
+    _ ->
+      "7"
+  end.

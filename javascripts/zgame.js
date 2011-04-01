@@ -53,7 +53,7 @@ function get_data() {
     function(data) {
       get_data();
       append_log(data.msg);
-      update_flash(data.flash);
+      //update_flash(data.flash);
       update_map(data.map);
     }
   );
@@ -71,40 +71,29 @@ function update_flash( msg ) {
 }
 
 function update_map(mapdata) {
+  var d = new Date();
+  start_time = d.getTime();
   var map = mapdata.split(",");
    // alert(map);
   var i = 0
   for (r=25; r>=1; r--) {
     for(c = 1; c <= 25; c++) {
-      maptile = map[i];
-      clientTile = $('#r'+r+'c'+c);
-      clientTile.removeClass();
-      if( maptile == "0" ) {
-        clientTile.addClass('empty');
-      } else if( maptile == "1" ) {
-        clientTile.addClass('space');
-      } else if( maptile == "2" ) {
-        clientTile.addClass('wall');
-      } else if( maptile == "3" ) {
-        clientTile.addClass('rspace');
-      } else if( maptile == "4" ) {
-        clientTile.addClass('rwall');
-      } else if( maptile == "5" ) {
-        clientTile.addClass('player');
-      }
+      position = map[i] * 16;
+      $('#r'+r+'c'+c).css('background-position',"-"+position+"px 0px");
       i = i + 1;
     }
   }
+  var t = new Date();
+  update_flash(t.getTime() - start_time);
 }
-  
-
 
 $(document).ready( function() {
+    $("#map").append('<table></table>');
     get_data();
     for (r=1; r<=25; r++) {
+      $("#map table").append('<tr id="r'+r+'"></tr>');
       for(c = 1; c <= 25; c++) {
-        $("#map").append('<img src="/images/transparent.png" id="r'+r+'c'+c+'"/>');
+        $("#r"+r).append('<td id="r'+r+'c'+c+'"></td>');
       }
-      $("#map").append('<br />');
     }
 });

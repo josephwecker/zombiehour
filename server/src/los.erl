@@ -50,10 +50,10 @@ line(_Map, {X1, Y1}, {X1, Y1}, _, _, _, Tiles) ->
 line(Map, {X, Y}, {X1, Y1}, {SX, SY}, {DX, DY}, Err, Tiles) ->
   Key = tile:coords_to_key(X, Y),
   {Key, Tile} = digraph:vertex(Map, Key),
-  case dict:fetch(blocking, Tile) of
-    true ->
-      end_line([Key | Tiles]);
+  case dict:fetch(visible, Tile) of
     false ->
+      end_line([Key | Tiles]);
+    true ->
       DE = 2 * Err,
       {X0, Err0} = next_x(X, SX, DY, Err, DE),
       {Y0, Err1} = next_y(Y, SY, DX, Err0, DE),

@@ -49,19 +49,15 @@ a {
   float: left;
   width:400;
 }
+#map table { border-collapse: collapse; }
 
-#map img {
+#map td {
+	padding: 0px;
 	width:16px;
 	height:16px;
 	background:url(/images/tiles.png);
+	background-position: -0px  -0px;
 }
-
-#map img.empty  { background-position: -32px -0px ; }
-#map img.player { background-position: -32px -16px; }
-#map img.wall   { background-position: -16px -16px; }
-#map img.space  { background-position: -0px  -16px; }
-#map img.rwall  { background-position: -16px -0px ; }
-#map img.rspace { background-position: -0px  -0px ; }
 
 #result {
   float: left;
