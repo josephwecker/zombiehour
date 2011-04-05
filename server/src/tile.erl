@@ -1,5 +1,5 @@
 -module(tile).
--export([initialize_map/2, coords_to_key/2, dir_to_key/2, update_tile_sym/1]).
+-export([initialize_map/2, coords_to_key/2, dir_to_key/2, update_sym/1]).
 
 initialize_map(Map, MapData) ->
   lists:foreach(
@@ -38,9 +38,9 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
       T5 = dict:store(movement, true, T4),
       Tile = dict:store(visible, true, T5)
   end,
-
+  Tile2 = update_sym(Tile),
   %vertex = {"x000y000", Tile}
-  digraph:add_vertex(Map, Key, Tile).
+  digraph:add_vertex(Map, Key, Tile2).
 
 initialize_neighbors( Tile, Map, XBound, YBound ) ->
   {Tile, TileData} = digraph:vertex(Map, Tile),
@@ -88,20 +88,22 @@ find_bound(D, Limit) ->
   end,
   {D1, D, D2}.
 
-update_tile_sym(Tile) ->
+
+update_sym(Tile) ->
   case dict:fetch(zombies, Tile) of
     []->
       case dict:fetch(characters, Tile) of
         []->
           case dict:fetch(visible, Tile) of
             true ->
-              "1";
+              Symbol = "1";
             false ->
-              "2"
+              Symbol = "2"
           end;
         _ ->
-          "8"
+          Symbol = "8"
       end;
     _ ->
-      "7"
-  end.
+      Symbol = "7"
+  end,
+  dict:store(symbol, Symbol, Tile).

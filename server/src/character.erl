@@ -32,7 +32,7 @@ build_map(Character) ->
                   end;
                 true ->
                   {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                  lists:concat([tile:update_tile_sym(Tile), ","])
+                  lists:concat([dict:fetch(symbol, Tile), ","])
               end
           end,
           lists:seq(X-12,X+12)))
@@ -40,27 +40,36 @@ build_map(Character) ->
     lists:seq(Y-12,Y+12))).
 
 learn_tiles(Map, Tiles) ->
-  lists:sort(lists:map(
+  lists:keysort(1, lists:map(
     fun(Key) ->
         {Key, Tile} = digraph:vertex(Map, Key),
-        Sym = integer_to_list(list_to_integer(tile:update_tile_sym(Tile))+8),
+        Sym = integer_to_list(list_to_integer(dict:fetch(symbol, Tile))+8),
         {Key, Sym}
     end,
     Tiles)).
+
+update_queue(Character, Request) ->
+  case Request of
+    nil ->
+      Character;
+    Request ->
+      Queue = dict:fetch(queue, Character),
+      case Queue of
+        [] ->
+          NewQueue = [Request];
+        _ ->
+          NewQueue = lists:append(Queue, [Request])
+      end,
+      dict:store(queue, NewQueue, Character)
+  end.
 
 do_request(Scenario, Character, {Action, {character, Value}}) ->
   gen_server:cast(Scenario, {Action, {Character, Value}}).
 
 init([Name, Scenario]) ->
-  C = dict:new(),
-  Ch = dict:store(id, self(), C),
-  Cha = dict:store(tag, Name, Ch),
-  Char = dict:store(queue, [], Cha),
-  Chara = dict:store(cooldown, 0, Char),
-  Charac = dict:store(visible_tiles, [], Chara),
-  Charact = dict:store(known_tiles, [], Charac),
-  Characte = dict:store(sight, 8, Charact),
-  Character = dict:store(zombified, false, Characte),
+  Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0},
+    {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8}, {zombified, false}],
+  Character = dict:from_list(Attrs),
   gen_server:cast(Scenario, {add_character, self()}),
   Feedback = [],
   Addresses = {inactive, Scenario},
@@ -74,12 +83,18 @@ handle_cast(tick, {Character, Feedback, {Address, Scenario}}) ->
   Num = dict:fetch(cooldown, Character),
   case Num of
     0 ->
-      case dict:fetch(queue, Character) of
-        [] ->
+      case dict:fetch(locked, Character) of
+        true ->
           NewCharacter = Character;
-        [Request|NewQueue] ->
-          do_request(Scenario, Character, Request),
-          NewCharacter = dict:store(queue, NewQueue, Character)
+        false ->
+          case dict:fetch(queue, Character) of
+            [] ->
+              NewCharacter = Character;
+            [Request|NewQueue] ->
+              do_request(Scenario, Character, Request),
+              Character1 = dict:store(locked, true, Character),
+              NewCharacter = dict:store(queue, NewQueue, Character1)
+          end
       end;
     Num ->
       NewCharacter = dict:update_counter(cooldown, -1, Character)
@@ -118,7 +133,7 @@ handle_cast({update_character, {Attr, Value}}, {Character, F, A}) ->
       C2 = dict:store(visible_tiles, VisibleTiles, C1),
       OldKnownTiles = dict:fetch(known_tiles, Character),
       Map = dict:fetch(map, Character),
-      KnownTiles = lists:umerge(OldKnownTiles, learn_tiles(Map, VisibleTiles)),
+      KnownTiles = lists:ukeymerge(1, learn_tiles(Map, VisibleTiles), OldKnownTiles),
       NewCharacter = dict:store(known_tiles, KnownTiles, C2);
     _ ->
       NewCharacter = dict:store(Attr, Value, Character)
@@ -142,28 +157,19 @@ handle_cast({heat_up, Amount}, {Character, F, A}) ->
 handle_cast({post, {Param, Value}}, {Character, F, {_, Scenario} = A}) ->
   case Param of
     "say" ->
-      Request = {say, {character, Value}};
+      Request = nil,
+      gen_server:cast(Scenario, {say, {Character, Value}});
     "walk" ->
       Request = {walk, {character, Value}};
     Param ->
       Request = nil,
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
   end,
-  Cooldown = dict:fetch(cooldown, Character),
-  case Cooldown of
-    0 ->
-      NewCharacter = Character,
-      do_request(Scenario, Character, Request);
-    _ ->
-      Queue = dict:fetch(queue, Character),
-      case Queue of
-        [] ->
-          NewQueue = [Request];
-        _ ->
-          NewQueue = lists:append(Queue, [Request])
-      end,
-      NewCharacter = dict:store(queue, NewQueue, Character)
-  end,
+  NewCharacter = update_queue(Character, Request),
+  {noreply, {NewCharacter, F, A}};
+
+handle_cast(unlock, {Character, F, A}) ->
+  NewCharacter = dict:store(locked, false, Character),
   {noreply, {NewCharacter, F, A}};
 
 handle_cast(Msg, State) ->

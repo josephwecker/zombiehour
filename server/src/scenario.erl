@@ -68,15 +68,14 @@ init([]) ->
   tile:initialize_map(Map, lists:reverse(MapData)),
   Characters = [],
   Vertices = digraph:vertices(Map),
-  Zombies = [],
-  %Zombies = lists:map(
-  %  fun(_Num) ->
-  %      Position = lists:nth(random:uniform(length(Vertices)), Vertices),
-  %      {ok, Pid} = zombie:create([Self, Position, Map]),
-  %      update_map(Map, Position, zombies, {add, Pid}),
-  %      Pid
-  %  end,
-  %  lists:seq(1,30)),
+  Zombies = lists:map(
+    fun(_Num) ->
+        Position = lists:nth(random:uniform(length(Vertices)), Vertices),
+        {ok, Pid} = zombie:create([Self, Position, Map]),
+        update_map(Map, Position, zombies, {add, Pid}),
+        Pid
+    end,
+    lists:seq(1,30)),
   spawn(fun() -> tick:tick(Self, 200) end),
   {ok, {Characters, Zombies, Map}}.
 
@@ -108,7 +107,8 @@ update_map(Map, Vertex, Attr, {Instruction, Value}) ->
       io:format("No update function for: ~p~n",[Attr]),
       NewTile = Tile
   end,
-  digraph:add_vertex(Map, Vertex, NewTile).
+  NewTile2 = tile:update_sym(NewTile),
+  digraph:add_vertex(Map, Vertex, NewTile2).
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
@@ -119,10 +119,15 @@ handle_cast(tick, {Characters, Zombies, _} = State) ->
   lists:foreach(fun(Zombie) -> gen_server:cast(Zombie, tick) end, Zombies),
   {noreply, State};
 
+handle_cast({wait, Pid}, State) ->
+  gen_server:cast(Pid, unlock),
+  {noreply, State};
+
 handle_cast({walk, {Character, Direction}}, {C, Z, Map}) ->
+  Pid = dict:fetch(id, Character),
   case Direction of
     "" ->
-      ok;
+      gen_server:cast(Pid, unlock);
     Direction ->
       Location = dict:fetch(location, Character),
       Edge = tile:dir_to_key(Location, Direction),
@@ -131,7 +136,7 @@ handle_cast({walk, {Character, Direction}}, {C, Z, Map}) ->
       {DesiredLocation, TileData} = digraph:vertex(Map, DesiredLocation),
       case dict:fetch(movement, TileData) of
         false ->
-          ok;
+          gen_server:cast(Pid, unlock);
         true ->
           case dict:fetch(zombified, Character) of
             true ->
@@ -140,16 +145,16 @@ handle_cast({walk, {Character, Direction}}, {C, Z, Map}) ->
               ListName = characters
           end,
           NewLocation = DesiredLocation,
-          Pid = dict:fetch(id, Character),
           update_map(Map, NewLocation, ListName, {add, Pid}),
           update_map(Map, Location, ListName, {rm, Pid}),
           gen_server:cast(Pid, {update_character, {location, NewLocation}}),
           case dict:fetch(zombified, Character) of
             true ->
-              gen_server:cast(Pid, {heat_up, 5});
+              gen_server:cast(Pid, {heat_up, 10});
             false ->
-              gen_server:cast(Pid, {heat_up, 3})
-          end
+              gen_server:cast(Pid, {heat_up, 8})
+          end,
+          gen_server:cast(Pid, unlock)
       end
   end,
   {noreply, {C, Z, Map}};
