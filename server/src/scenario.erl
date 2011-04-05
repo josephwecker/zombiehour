@@ -123,6 +123,28 @@ handle_cast({wait, Pid}, State) ->
   gen_server:cast(Pid, unlock),
   {noreply, State};
 
+handle_cast({attack, {Attacker, TPid}}, {Characters, Z, M}) ->
+  Target = gen_server:call(TPid, character),
+
+  case nav:distance(dict:fetch(location, Attacker), dict:fetch(location,
+        Target)) < 2 of
+    true ->
+      case random:uniform(2) of
+        1 ->
+          ok
+          ;
+        2 ->
+          gen_server:cast(TPid, {take_damage, 2})
+      end
+      ;
+    false ->
+      ok
+  end,
+  Pid = dict:fetch(id, Attacker),
+  gen_server:cast(Pid, {heat_up, 8}),
+  gen_server:cast(Pid, unlock),
+  {noreply, {Characters, Z, M}};
+
 handle_cast({walk, {Character, Direction}}, {C, Z, Map}) ->
   Pid = dict:fetch(id, Character),
   case Direction of

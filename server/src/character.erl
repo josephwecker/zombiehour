@@ -64,16 +64,24 @@ update_queue(Character, Request) ->
   end.
 
 do_request(Scenario, Character, {Action, {character, Value}}) ->
-  gen_server:cast(Scenario, {Action, {Character, Value}}).
+  case dict:fetch(hp, Character) > 0 of
+    true ->
+      gen_server:cast(Scenario, {Action, {Character, Value}});
+    false ->
+      ok
+  end.
 
 init([Name, Scenario]) ->
-  Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0},
+  Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {hp, 20},
     {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8}, {zombified, false}],
   Character = dict:from_list(Attrs),
   gen_server:cast(Scenario, {add_character, self()}),
   Feedback = [],
   Addresses = {inactive, Scenario},
   {ok, {Character, Feedback, Addresses}}.
+
+handle_call(character, _From, {Character, F, A}) ->
+  {reply, Character, {Character, F, A}};
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
@@ -139,6 +147,13 @@ handle_cast({update_character, {Attr, Value}}, {Character, F, A}) ->
       NewCharacter = dict:store(Attr, Value, Character)
   end,
   {noreply, {NewCharacter, F, A}};
+
+handle_cast({take_damage, Amt}, {Character, Feedback, A}) ->
+  NewCharacter = dict:update_counter(hp, -Amt, Character),
+  HP = dict:fetch(hp, NewCharacter),
+  NewFeedback = lists:concat([Feedback, "You take ", Amt, " damage, and now have ",
+    HP, " hitpoints<br/>"]),
+  {noreply, {NewCharacter, NewFeedback, A}};
 
 handle_cast({hear, Msg}, {C, Feedback, A}) ->
   %{_, {{_,Old}, Map}} = Feedback,

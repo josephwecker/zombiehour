@@ -43,11 +43,11 @@ figure_out_what_to_do(Zombie) ->
       {walk, {Zombie, RandomDirection}};
     [CharacterList] ->
       MyPosition = nav:position(dict:fetch(location, Zombie)),
-      {TargetPosition, _List} = CharacterList,
+      {TargetPosition, List} = CharacterList,
       case nav:distance(MyPosition, TargetPosition) < 2 of
         true ->
-          %attack here
-          {wait, self()};
+          Target = pick_target(List),
+          {attack, {Zombie, Target}};
         false ->
           Direction = nav:direction(MyPosition, TargetPosition),
           %io:format("A Zomber Sees you... and goes ~p.  ",[Direction]),
@@ -55,15 +55,20 @@ figure_out_what_to_do(Zombie) ->
       end;
     CharacterLists ->
       MyPosition = nav:position(dict:fetch(location, Zombie)),
-      {TargetPosition, _List} = find_closest(MyPosition, CharacterLists),
+      {TargetPosition, List} = find_closest(MyPosition, CharacterLists),
       case nav:distance(MyPosition, TargetPosition) < 2 of
-        true -> 
-          {wait, self()};
+        true ->
+          Target = pick_target(List),
+          {attack, {Zombie, Target}};
         false ->
           Direction = nav:direction(MyPosition, TargetPosition),
           {walk, {Zombie, Direction}}
       end
   end.
+
+pick_target(List) ->
+  [ThisGuy|_] = List,
+  ThisGuy.
 
 find_closest(Origin, CharacterLists) ->
   [H|T] = CharacterLists,
@@ -87,7 +92,8 @@ find_closest(Origin, Characters, BestPick) ->
 
 init([Scenario, Position, Map]) ->
   Attrs = [{id, self()}, {location, Position}, {cooldown, 0}, {map, Map},
-    {visible_tiles, []}, {sight, 7}, {locked, false}, {zombified, true}],
+    {hp, 20}, {visible_tiles, []}, {sight, 7}, {locked, false},
+    {zombified, true}],
   Zombie = dict:from_list(Attrs),
   {ok, {Zombie, Scenario}}.
 
