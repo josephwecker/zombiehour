@@ -22,22 +22,22 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
   Y = RowCount,
   Key = coords_to_key( X, Y ),
   Value = lists:nth(X, lists:nth(Y, MapData)),
-  T = dict:new(),
-  T1 = dict:store(x, X, T),
-  T2 = dict:store(y, Y, T1),
-  T3 = dict:store(characters, [], T2),
-  T4 = dict:store(zombies, [], T3),
+  Attrs = [{x, X}, {y, Y}, {characters, []}, {zombies, []}],
   case Value of
     0 ->
-      T5 = dict:store(movement, false, T4),
-      Tile = dict:store(visible, false, T5);
+      Attrs2 = [{type, map_boundary}, {movement, false}, {visible, false}];
     2 ->
-      T5 = dict:store(movement, false, T4),
-      Tile = dict:store(visible, false, T5);
+      Attrs2 = [{type, wall}, {movement, false}, {visible, false}];
+    3 ->
+      Attrs2 = [{type, door}, {movement, true}, {visible, false}];
+    5 ->
+      Attrs2 = [{type, obstacle}, {movement, false}, {visible, true}];
+    6 ->
+      Attrs2 = [{type, window}, {movement, false}, {visible, true}];
     _ ->
-      T5 = dict:store(movement, true, T4),
-      Tile = dict:store(visible, true, T5)
+      Attrs2 = [{type, space}, {movement, true}, {visible, true}]
   end,
+  Tile = dict:from_list(lists:append(Attrs, Attrs2)),
   Tile2 = update_sym(Tile),
   %vertex = {"x000y000", Tile}
   digraph:add_vertex(Map, Key, Tile2).
@@ -94,11 +94,19 @@ update_sym(Tile) ->
     []->
       case dict:fetch(characters, Tile) of
         []->
-          case dict:fetch(visible, Tile) of
-            true ->
+          case dict:fetch(type, Tile) of
+            map_boundary ->
+              Symbol = "2";
+            space ->
               Symbol = "1";
-            false ->
-              Symbol = "2"
+            wall ->
+              Symbol = "2";
+            door ->
+              Symbol = "3";
+            window ->
+              Symbol = "4";
+            obstacle ->
+              Symbol = "5"
           end;
         _ ->
           Symbol = "8"

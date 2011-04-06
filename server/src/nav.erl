@@ -39,3 +39,6 @@ direction(Location1, Location2) ->
   Pos2 = position(Location2),
   direction(Pos1, Pos2).
 
+%get_cone(Origin, Direction) ->
+%  Directions = ["northwest", "north", "northeast", "east",
+%    "southeast", "south", "southwest", "west"],
