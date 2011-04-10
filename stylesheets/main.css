@@ -45,9 +45,17 @@ a {
 	text-decoration: none;
 }
 
+#board {
+	float:left;
+	width:100px;
+	height:380px;
+	padding: 20px;
+}
+
 #map {
   float: left;
   width:400;
+  height: 400px;
 }
 #map table { border-collapse: collapse; }
 
@@ -60,12 +68,21 @@ a {
 }
 
 #result {
-  float: left;
-	width: 400px;
+	float: left;
+	width: 300px;
 	height: 380px;
-	left:300px;
 	padding: 20px;
 	overflow: auto;
+}
+
+#status {
+	float: left;
+	width: 864px;
+	height: 80px;
+	padding: 20px;
+}
+#flash {
+	float: right;
 }
 
 #chat_input {

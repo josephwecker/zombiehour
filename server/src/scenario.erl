@@ -8,107 +8,51 @@ start() ->
 
 init([]) ->
   Self = self(),
-  MapData =
-[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
- [0,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,1,1,1,5,5,5,5,1,1,2,4,4,4,4,4,4,4,2,1,1,1,1,1,5,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,1,1,1,1,1,5,1,1,1,2,4,4,4,4,4,4,4,2,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,0],
- [0,1,1,2,2,2,2,1,1,1,1,1,1,3,4,4,4,4,4,4,4,2,1,1,1,1,1,2,4,4,4,4,4,5,4,4,4,2,1,1,1,1,2,4,4,4,4,4,5,4,4,4,2,1,1,1,0],
- [0,1,1,2,4,4,3,1,1,1,1,1,1,2,4,4,4,4,4,2,1,1,1,5,5,1,1,2,4,4,4,4,4,4,4,4,4,3,1,1,1,1,3,4,4,4,4,4,5,4,4,4,2,1,1,1,0],
- [0,1,1,2,4,4,2,1,5,5,1,1,1,2,4,4,4,4,4,2,1,1,1,5,5,1,1,2,4,4,4,4,5,4,4,4,4,3,1,1,1,1,3,4,5,5,4,4,4,4,4,4,2,1,1,1,0],              
- [0,1,1,2,2,2,2,1,1,1,1,1,1,2,4,4,4,4,4,2,1,1,1,5,5,1,1,2,4,4,4,4,4,4,5,4,4,3,1,1,1,1,3,4,4,5,4,4,4,4,4,4,2,1,1,1,0],    
- [0,1,1,1,1,1,1,1,2,2,2,1,1,2,4,4,4,4,4,2,1,1,1,1,5,5,1,2,4,4,4,4,4,4,4,4,4,2,1,1,1,1,2,4,4,4,4,4,4,4,4,4,2,1,1,1,0],           
- [0,1,1,1,1,1,2,3,2,4,2,1,1,2,4,4,4,4,4,2,1,1,1,1,5,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,0],     
- [0,1,1,1,1,1,2,4,4,4,2,1,1,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],         
- [0,1,1,1,1,1,2,4,4,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],      
- [0,1,1,1,1,1,2,2,2,2,2,1,1,1,2,2,2,2,2,2,3,2,2,2,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,5,1,1,0],          
- [0,1,1,1,1,1,1,1,1,1,1,1,1,1,2,4,4,4,4,4,4,4,4,2,1,1,1,2,4,4,4,4,4,4,4,4,4,2,1,1,1,1,2,4,4,4,4,4,4,4,4,4,2,5,1,1,0],
- [0,1,1,2,2,3,2,2,2,2,2,5,1,1,2,4,4,4,4,4,4,4,4,2,1,1,1,2,4,4,5,4,4,4,5,4,5,3,1,1,1,1,3,4,4,5,4,4,5,4,4,4,2,5,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,2,5,5,1,2,4,4,4,4,4,4,4,4,2,1,1,1,2,4,5,5,5,4,4,5,4,4,3,1,1,1,1,3,4,4,4,4,5,4,4,4,4,2,5,5,1,0],
- [0,1,1,2,4,4,4,4,4,4,2,1,1,1,2,2,2,2,2,2,2,2,2,2,1,1,1,2,4,4,5,4,4,4,4,4,4,3,1,1,1,1,3,4,4,4,4,4,4,4,4,4,2,1,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,4,4,4,4,4,4,4,4,4,2,1,1,1,1,2,4,4,5,5,5,4,4,4,4,2,1,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,4,4,4,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,2,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,4,4,4,4,2,1,1,1,1,1,2,2,3,2,2,2,2,2,1,1,2,2,2,2,2,3,2,2,1,1,1,1,2,2,2,2,1,0],
- [0,1,1,2,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,3,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1,2,1,1,2,1,1,2,1,0],
- [0,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1,2,1,1,2,1,1,2,1,0],
- [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,2,2,2,2,2,2,2,2,1,2,1,1,2,3,2,2,1,0],
- [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,0],
- [0,1,1,2,1,2,1,2,2,2,1,1,1,1,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,3,1,1,1,1,1,1,2,2,2,1,2,2,2,3,2,1,2,2,3,2,1,1,1,2,2,2,0],
- [0,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,2,1,1,1,2,1,2,1,1,2,1,1,1,2,1,2,0],
- [0,1,1,2,1,1,1,5,2,1,1,1,1,1,1,5,5,5,1,1,1,1,2,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,1,2,1,1,1,2,1,2,1,1,2,1,1,1,2,1,2,0],
- [0,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,2,2,2,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,2,1,1,2,1,1,1,3,1,2,0],
- [0,1,1,2,2,2,2,2,1,1,2,1,1,2,1,5,5,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,1,1,2,2,2,2,2,1,2,2,2,2,1,1,2,1,1,2,0],
- [0,1,1,1,1,1,1,1,1,5,2,1,1,2,2,2,2,1,1,2,2,1,2,1,1,1,1,1,1,2,2,2,2,1,1,1,1,2,1,1,5,5,1,1,1,1,5,1,1,1,1,1,2,1,1,2,0],
- [0,1,1,2,5,1,1,1,1,5,2,1,1,1,1,5,5,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,1,1,1,1,1,2,1,1,1,5,1,1,1,1,5,1,5,5,1,1,2,2,2,2,0],
- [0,1,1,1,1,1,5,5,1,1,1,1,1,1,1,1,1,1,5,1,1,1,2,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,5,1,1,1,5,1,1,1,1,1,1,0],
- [0,1,1,2,2,2,2,5,2,1,1,2,2,2,1,1,5,5,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,5,5,5,1,1,1,1,2,5,1,1,1,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,5,5,1,5,1,1,1,2,5,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,1,1,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,2,2,2,2,2,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,0],
- [0,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,0],
- [0,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,5,5,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,0],
- [0,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,5,1,1,2,1,1,2,5,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,0],
- [0,1,2,2,3,2,2,1,2,2,3,2,2,1,1,2,2,3,2,2,5,5,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,0],
- [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
- [0,1,2,2,3,2,2,1,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,1,2,2,3,2,2,1,0],
- [0,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,0],
- [0,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,0],
- [0,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,0],
- [0,1,2,2,2,2,2,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,0],
- [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
   Map = digraph:new(),
-  tile:initialize_map(Map, lists:reverse(MapData)),
+  tile:initialize_map(Map),
   Characters = [],
   Vertices = digraph:vertices(Map),
   Zombies = lists:map(
     fun(_Num) ->
         Position = lists:nth(random:uniform(length(Vertices)), Vertices),
         {ok, Pid} = zombie:create([Self, Position, Map]),
-        update_map(Map, Position, zombies, {add, Pid}),
+        update_map(Map, Position, character, Pid),
         Pid
     end,
     lists:seq(1,30)),
-  spawn(fun() -> tick:tick(Self, 200) end),
+  spawn(fun() -> tick:tick(Self, 100) end),
   {ok, {Characters, Zombies, Map}}.
 
 %Tile functions... (maybe should go in separate module?)
 % End of tile functions...
 
-update_map(Map, Vertex, Attr, {Instruction, Value}) ->
+update_map(Map, Vertex, Attr, Value) ->
   {Vertex, Tile} = digraph:vertex(Map, Vertex),
   case Attr of
-    characters ->
-      CharList = dict:fetch(characters, Tile),
-      case Instruction of
-        add ->
-          NewList = lists:append(CharList, [Value]);
-        rm ->
-          NewList = lists:delete(Value, CharList)
-      end,
-      NewTile = dict:store(characters, NewList, Tile);
-    zombies ->
-      ZomList = dict:fetch(zombies, Tile),
-      case Instruction of
-        add ->
-          NewList = lists:append(ZomList, [Value]);
-        rm ->
-          NewList = lists:delete(Value, ZomList)
-      end,
-      NewTile = dict:store(zombies, NewList, Tile);
+    character ->
+      case Value of
+        nil ->
+          Tile2 = dict:store(character, nil, Tile),
+          NewTile = dict:store(movement, true, Tile2);
+        Value ->
+          Character = gen_server:call(Value, character),
+          Tile2   = dict:store(movement, false, Tile),
+          NewTile = dict:store(character, Character, Tile2)
+      end;
     Attr ->
       io:format("No update function for: ~p~n",[Attr]),
       NewTile = Tile
   end,
   NewTile2 = tile:update_sym(NewTile),
   digraph:add_vertex(Map, Vertex, NewTile2).
+
+handle_call({create_character, Name}, _From, {Characters, Z, Map}) ->
+  Vertices = digraph:vertices(Map),
+  Location = lists:nth(random:uniform(length(Vertices)), Vertices),
+  {ok, Character} = player:create([Name, self(), Map, Location]),
+  update_map(Map, Location, character, Character),
+  NewCharacters = lists:append(Characters,[Character]),
+  {reply, Character, {NewCharacters, Z, Map}};
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
@@ -123,27 +67,31 @@ handle_cast({wait, Pid}, State) ->
   gen_server:cast(Pid, unlock),
   {noreply, State};
 
-handle_cast({attack, {Attacker, TPid}}, {Characters, Z, M}) ->
-  Target = gen_server:call(TPid, character),
-
-  case nav:distance(dict:fetch(location, Attacker), dict:fetch(location,
-        Target)) < 2 of
-    true ->
+handle_cast({attack, {Attacker, Direction}}, {C, Z, Map}) ->
+  Neighbor = nav:neighbor(dict:fetch(location, Attacker), Direction),
+  {_, NbrTile} = digraph:vertex(Map, Neighbor),
+  Target = dict:fetch(character, NbrTile),
+  Pid = dict:fetch(id, Attacker),
+  case Target of
+    nil ->
+      gen_server:cast(Pid, {msg, "You swing at the open air."})
+      ;
+    Target ->
+      TPid = dict:fetch(id,Target),
       case random:uniform(2) of
         1 ->
-          ok
+          gen_server:cast(Pid, {msg, "You miss."}),
+          gen_server:cast(TPid, {msg, "The Zombie swings at you but misses."})
           ;
         2 ->
-          gen_server:cast(TPid, {take_damage, 2})
+          gen_server:cast(Pid, {msg, "You hit."}),
+          gen_server:cast(TPid, {take_damage, 2}),
+          gen_server:cast(TPid, {msg, "You take 2 damage"})
       end
-      ;
-    false ->
-      ok
   end,
-  Pid = dict:fetch(id, Attacker),
   gen_server:cast(Pid, {heat_up, 8}),
   gen_server:cast(Pid, unlock),
-  {noreply, {Characters, Z, M}};
+  {noreply, {C, Z, Map}};
 
 handle_cast({walk, {Character, Direction}}, {C, Z, Map}) ->
   Pid = dict:fetch(id, Character),
@@ -151,50 +99,60 @@ handle_cast({walk, {Character, Direction}}, {C, Z, Map}) ->
     "" ->
       gen_server:cast(Pid, unlock);
     Direction ->
-      Location = dict:fetch(location, Character),
-      Edge = tile:dir_to_key(Location, Direction),
-      Result = digraph:edge(Map, Edge),
-      {_, _, DesiredLocation, _} = Result,
-      {DesiredLocation, TileData} = digraph:vertex(Map, DesiredLocation),
-      case dict:fetch(movement, TileData) of
+      DesiredLocation = nav:neighbor(dict:fetch(location, Character), Direction),
+      case digraph:vertex(Map, DesiredLocation) of
         false ->
           gen_server:cast(Pid, unlock);
-        true ->
-          case dict:fetch(zombified, Character) of
-            true ->
-              ListName = zombies;
+        {_, TileData} ->
+          case dict:fetch(movement, TileData) of
             false ->
-              ListName = characters
-          end,
-          NewLocation = DesiredLocation,
-          update_map(Map, NewLocation, ListName, {add, Pid}),
-          update_map(Map, Location, ListName, {rm, Pid}),
-          gen_server:cast(Pid, {update_character, {location, NewLocation}}),
-          case dict:fetch(zombified, Character) of
+              case dict:fetch(character, TileData) of
+                nil ->
+                  gen_server:cast(Pid, unlock);
+                Target ->
+                  case dict:fetch(zombified, Target) == dict:fetch(zombified,
+                      Character) of
+                      true ->
+                        gen_server:cast(Pid, unlock);
+                      false ->
+                        gen_server:cast(self(), {attack, {Character, Direction}})
+                    end
+              end;
             true ->
-              gen_server:cast(Pid, {heat_up, 10});
-            false ->
-              gen_server:cast(Pid, {heat_up, 8})
-          end,
-          gen_server:cast(Pid, unlock)
+              Location = dict:fetch(location, Character),
+              NewLocation = DesiredLocation,
+              update_map(Map, Location, character, nil),
+              update_map(Map, NewLocation, character, Pid),
+              gen_server:cast(Pid, {update_character, {location, NewLocation}}),
+              case dict:fetch(zombified, Character) of
+                true ->
+                  gen_server:cast(Pid, {heat_up, 10});
+                false ->
+                  gen_server:cast(Pid, {heat_up, 8})
+              end,
+              gen_server:cast(Pid, unlock)
+          end
       end
   end,
   {noreply, {C, Z, Map}};
+
+handle_cast({die, Character}, {C, Z, Map}) ->
+  case dict:fetch(zombified, Character) of
+    true ->
+      NS = {C, lists:delete(dict:fetch(id,Character), Z), Map};
+    false ->
+      %NS = {lists:delete(dict:fetch(id,Character), C), Z, Map}
+      NS = {C,Z,Map}
+  end,
+  Location = dict:fetch(location, Character),
+  update_map(Map, Location, character, nil),
+  {noreply, NS};
 
 handle_cast({say, {Character, Msg}}, {Characters, _Z, _} = State) ->
   Name = dict:fetch(tag, Character),
   Output = lists:concat([Name, ": ", Msg]),
   lists:foreach(fun(Char) -> gen_server:cast(Char, {hear, Output}) end, Characters),
   {noreply, State};
-
-handle_cast({add_character, Character}, {Characters, Z, Map}) ->
-  Vertices = digraph:vertices(Map),
-  Location = lists:nth(random:uniform(length(Vertices)), Vertices),
-  update_map(Map, Location, characters, {add, Character}),
-  gen_server:cast(Character, {add_to_char, {map, Map}}),
-  gen_server:cast(Character, {add_to_char, {location, Location}}),
-  NewList = lists:append(Characters,[Character]),
-  {noreply, {NewList, Z, Map}};
 
 handle_cast(Msg, State) ->
   io:format("Scenario received unkown cast: ~p~n",[Msg]),

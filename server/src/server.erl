@@ -12,6 +12,8 @@ restart() ->
   io:format("~p~n",[os:cmd("./build")]),
   code:purge(zhandler),
   code:load_file(zhandler),
+  code:purge(player),
+  code:load_file(player),
   code:purge(character),
   code:load_file(character),
   code:purge(scenario),

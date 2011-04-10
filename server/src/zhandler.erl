@@ -57,7 +57,7 @@ handle_cast(create_scenario, {Table, List}) ->
 
 handle_cast({create_character, {Cookie, Name}}, State) ->
   {_Table, [Scenario]} = State,
-  {ok, Character} = character:create([Name, Scenario]),
+  Character = gen_server:call(Scenario, {create_character, Name}),
   %ets:insert(Table, {Cookie, Character, inactive}),
   gen_server:cast(?MODULE, {update_table, {character_address, {Cookie, Character}}}),
   {noreply, State};

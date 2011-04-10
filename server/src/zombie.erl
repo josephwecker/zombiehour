@@ -3,120 +3,72 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([create/1]).
 
+figure_out_what_to_do(Zombie) ->
+  case character:observe_characters(Zombie) of
+    [] ->
+      Direction = lists:nth(random:uniform(8), ["northwest", "north",
+          "northeast", "east", "southeast", "south", "southwest", "west"]);
+    [Character] ->
+      MyPosition = nav:position(dict:fetch(location, Zombie)),
+      TargetPosition = Character,
+      Direction = nav:direction(MyPosition, TargetPosition);
+    CharacterList ->
+      MyPosition = nav:position(dict:fetch(location, Zombie)),
+      TargetPosition = character:find_closest(MyPosition, CharacterList),
+      Direction = nav:direction(MyPosition, TargetPosition)
+  end,
+  {walk, {Zombie, Direction}}.
+
 create(Attrs) ->
   gen_server:start_link(?MODULE, Attrs, []).
 
-observe_characters(Zombie) ->
-  ScenarioMap = dict:fetch(map, Zombie),
-  VisibleTiles = dict:fetch(visible_tiles, Zombie),
-  {X,Y} = nav:position(dict:fetch(location, Zombie)),
-  lists:flatten(
-  lists:map(
-    fun(Row) ->
-        lists:flatten(
-        lists:map(
-          fun(Col) ->
-              Key = tile:coords_to_key( Col, Row ),
-              case lists:member(Key, VisibleTiles) of
-                false ->
-                  [];
-                true ->
-                  {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                  case dict:fetch(characters, Tile) of
-                    []->
-                      [];
-                    Characters ->
-                      {{Col, Row}, Characters}
-                  end
-              end
-          end,
-          lists:seq(X-7,X+7)))
-    end,
-    lists:seq(Y-7,Y+7))).
-
-figure_out_what_to_do(Zombie) ->
-  case observe_characters(Zombie)of
-    [] ->
-      RandomDirection = lists:nth(random:uniform(8), ["northwest", "north",
-          "northeast", "east", "southeast", "south", "southwest", "west"]),
-      %io:format("Zomber meanders aimlessly and goes ~p.  ",[RandomDirection]),
-      {walk, {Zombie, RandomDirection}};
-    [CharacterList] ->
-      MyPosition = nav:position(dict:fetch(location, Zombie)),
-      {TargetPosition, List} = CharacterList,
-      case nav:distance(MyPosition, TargetPosition) < 2 of
-        true ->
-          Target = pick_target(List),
-          {attack, {Zombie, Target}};
-        false ->
-          Direction = nav:direction(MyPosition, TargetPosition),
-          %io:format("A Zomber Sees you... and goes ~p.  ",[Direction]),
-          {walk, {Zombie, Direction}}
-      end;
-    CharacterLists ->
-      MyPosition = nav:position(dict:fetch(location, Zombie)),
-      {TargetPosition, List} = find_closest(MyPosition, CharacterLists),
-      case nav:distance(MyPosition, TargetPosition) < 2 of
-        true ->
-          Target = pick_target(List),
-          {attack, {Zombie, Target}};
-        false ->
-          Direction = nav:direction(MyPosition, TargetPosition),
-          {walk, {Zombie, Direction}}
-      end
-  end.
-
-pick_target(List) ->
-  [ThisGuy|_] = List,
-  ThisGuy.
-
-find_closest(Origin, CharacterLists) ->
-  [H|T] = CharacterLists,
-  find_closest(Origin, T, H).
-
-find_closest(_Origin, [], BestPick) ->
-  BestPick;
-
-find_closest(Origin, Characters, BestPick) ->
-  {BPos, _} = BestPick,
-  [{HPos, _}=H|T] = Characters,
-  BS = nav:distance(Origin, BPos),
-  HS = nav:distance(Origin, HPos),
-  case HS < BS of
-    true ->
-      Winner = H;
-    false ->
-      Winner = BestPick
-  end,
-  find_closest(Origin, T, Winner).
-
 init([Scenario, Position, Map]) ->
   Attrs = [{id, self()}, {location, Position}, {cooldown, 0}, {map, Map},
-    {hp, 20}, {visible_tiles, []}, {sight, 7}, {locked, false},
+    {tag, "Zomber"}, {hp, 6}, {visible_tiles, []}, {sight, 7}, {locked, false},
     {zombified, true}],
   Zombie = dict:from_list(Attrs),
   {ok, {Zombie, Scenario}}.
+
+handle_call(character, _From, {Zombie, S}) ->
+  {reply, Zombie, {Zombie, S}};
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
 handle_cast(tick, {Zombie, Scenario}) ->
-  Num = dict:fetch(cooldown, Zombie),
-  case Num of
-    0 ->
-      case dict:fetch(locked, Zombie) of
-        true ->
-          NewZombie = Zombie;
-        false ->
-          NewZombie = dict:store(locked, true, Zombie),
-          ToDo = figure_out_what_to_do(Zombie),
-          gen_server:cast(Scenario, ToDo)
+  case dict:fetch(hp, Zombie) > 0 of
+    true ->
+      Num = dict:fetch(cooldown, Zombie),
+      case Num of
+        0 ->
+          case dict:fetch(locked, Zombie) of
+            true ->
+              NewZombie = Zombie;
+            false ->
+              NewZombie = dict:store(locked, true, Zombie),
+              ToDo = figure_out_what_to_do(Zombie),
+  %io:format("~p~n",[ToDo]),
+              gen_server:cast(Scenario, ToDo)
+          end;
+        Num ->
+          NewZombie = dict:update_counter(cooldown, -1, Zombie)
       end;
-    Num ->
-      NewZombie = dict:update_counter(cooldown, -1, Zombie)
+    false ->
+      NewZombie = Zombie
   end,
   {noreply, {NewZombie, Scenario}};
+
+handle_cast({take_damage, Amt}, {Zombie, Scenario}) ->
+  NewZombie = dict:update_counter(hp, -Amt, Zombie),
+  case dict:fetch(hp, NewZombie) >= 1 of
+    true ->
+      {noreply, {NewZombie, Scenario}};
+    false ->
+      gen_server:cast(Scenario, {die, NewZombie}),
+      %{stop, death, {NewZombie, Scenario}}
+      {noreply, {NewZombie, Scenario}}
+  end;
 
 handle_cast({update_character, {Attr, Value}}, {Zombie, S}) ->
   case Attr of
@@ -133,6 +85,9 @@ handle_cast({update_character, {Attr, Value}}, {Zombie, S}) ->
 handle_cast(unlock, {Zombie, S}) ->
   NewZombie = dict:store(locked, false, Zombie),
   {noreply, {NewZombie, S}};
+
+handle_cast({msg, _Msg}, {Z, S}) ->
+  {noreply, {Z, S}};
 
 handle_cast({hear, _Msg}, {Z, S}) ->
   % do something like the sound source is intriguing to the zombman, so if

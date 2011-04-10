@@ -1,5 +1,5 @@
 -module(nav).
--export([position/1, distance/2, direction/2]).
+-export([position/1, distance/2, direction/2, neighbor/2]).
 
 position(Location) ->
   [XStr, YStr] = string:tokens(Location, "XY"),
@@ -38,6 +38,32 @@ direction(Location1, Location2) ->
   Pos1 = position(Location1),
   Pos2 = position(Location2),
   direction(Pos1, Pos2).
+
+neighbor(Origin, Direction) ->
+  {OX, OY} = position(Origin),
+  if
+    Direction == "north" ->
+      Neighbor = tile:coords_to_key(OX, OY+1);
+    Direction == "northeast" ->
+      Neighbor = tile:coords_to_key(OX+1, OY+1);
+    Direction == "east" ->
+      Neighbor = tile:coords_to_key(OX+1, OY);
+    Direction == "southeast" ->
+      Neighbor = tile:coords_to_key(OX+1, OY-1);
+    Direction == "south" ->
+      Neighbor = tile:coords_to_key(OX, OY-1);
+    Direction == "southwest" ->
+      Neighbor = tile:coords_to_key(OX-1, OY-1);
+    Direction == "west" ->
+      Neighbor = tile:coords_to_key(OX-1, OY);
+    Direction == "northwest" ->
+      Neighbor = tile:coords_to_key(OX-1, OY+1);
+    Direction == "" ->
+      Neighbor = tile:coords_to_key(OX, OY)
+  end,
+  Neighbor.
+    
+
 
 %get_cone(Origin, Direction) ->
 %  Directions = ["northwest", "north", "northeast", "east",

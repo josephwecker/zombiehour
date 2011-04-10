@@ -5,6 +5,7 @@ from build_utils import *
 
 erlc('server')
 erlc('zhandler')
+erlc('player')
 erlc('character')
 erlc('scenario')
 erlc('zombie')
