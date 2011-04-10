@@ -25,7 +25,7 @@ $(document).bind(
     });
 $(document).bind(
     "keydown", "j", function (evt) {
-    command = "attack";
+    command = "shoot";
     });
 
 function pickDirection() {

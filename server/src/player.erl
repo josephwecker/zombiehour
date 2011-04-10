@@ -73,11 +73,11 @@ update_stat(Atom, {F, M, Stat}) ->
 
 init([Name, Scenario, Map, Location]) ->
   Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {hp, 20},
-    {map, Map},
+    {map, Map}, {ammo, 10},
     {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8}, {zombified, false}],
   Player = dict:from_list(Attrs),
   gen_server:cast(self(), {update_character, {location, Location}}),
-  Update = {[],[],[tag,hp]},
+  Update = {[],[],[tag,hp,ammo]},
   Addresses = {inactive, Scenario},
   {ok, {Player, Update, Addresses}}.
 
@@ -198,6 +198,11 @@ handle_cast({heat_up, Amount}, {Player, U, A}) ->
   NewPlayer = dict:update_counter(cooldown, Amount, Player),
   {noreply, {NewPlayer, U, A}};
 
+handle_cast({lose_ammo, Amount}, {Player, U, A}) ->
+  NewPlayer = dict:update_counter(ammo, -Amount, Player),
+  NewUpdate = update_stat(ammo, U),
+  {noreply, {NewPlayer, NewUpdate, A}};
+
 handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
   case Param of
     "say" ->
@@ -205,8 +210,8 @@ handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
       gen_server:cast(Scenario, {say, {Player, Value}});
     "walk" ->
       Request = {walk, {player, Value}};
-    "attack" ->
-      Request = {attack, {player, Value}};
+    "shoot" ->
+      Request = {shoot, {player, Value}};
     Param ->
       Request = nil,
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])

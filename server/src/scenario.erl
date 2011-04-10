@@ -69,7 +69,7 @@ handle_cast({wait, Pid}, State) ->
 
 handle_cast({attack, {Attacker, Direction}}, {C, Z, Map}) ->
   Neighbor = nav:neighbor(dict:fetch(location, Attacker), Direction),
-  {_, NbrTile} = digraph:vertex(Map, Neighbor),
+  {Neighbor, NbrTile} = digraph:vertex(Map, Neighbor),
   Target = dict:fetch(character, NbrTile),
   Pid = dict:fetch(id, Attacker),
   case Target of
@@ -90,6 +90,40 @@ handle_cast({attack, {Attacker, Direction}}, {C, Z, Map}) ->
       end
   end,
   gen_server:cast(Pid, {heat_up, 8}),
+  gen_server:cast(Pid, unlock),
+  {noreply, {C, Z, Map}};
+
+handle_cast({shoot, {Attacker, Direction}}, {C, Z, Map}) ->
+  Pid = dict:fetch(id, Attacker),
+  Tile = character:find_target(Attacker, Direction),
+  case dict:fetch(ammo, Attacker) >= 1 of
+    true ->
+      case Tile of
+        false ->
+          gen_server:cast(Pid, {msg, "There are no targets in that direction."});
+        Tile ->
+          {Tile, TargetTile} = digraph:vertex(Map, Tile),
+          Target = dict:fetch(character, TargetTile),
+          case Target of
+            nil ->
+              gen_server:cast(Pid, {msg, "Your target evades."})
+              ;
+            Target ->
+              case random:uniform(2) of
+                1 ->
+                  gen_server:cast(Pid, {msg, "Your shot misses."});
+                2 ->
+                  gen_server:cast(Pid, {msg, "You shot the Zomber."}),
+                  TPid = dict:fetch(id,Target),
+                  gen_server:cast(TPid, {take_damage, 2})
+              end
+          end,
+          gen_server:cast(Pid, {lose_ammo, 1}),
+          gen_server:cast(Pid, {heat_up, 8})
+      end;
+    false ->
+      gen_server:cast(Pid, {msg, "You don't have any ammunition left."})
+  end,
   gen_server:cast(Pid, unlock),
   {noreply, {C, Z, Map}};
 

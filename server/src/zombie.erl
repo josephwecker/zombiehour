@@ -4,18 +4,13 @@
 -export([create/1]).
 
 figure_out_what_to_do(Zombie) ->
-  case character:observe_characters(Zombie) of
-    [] ->
+  case character:find_target(Zombie) of
+    false ->
       Direction = lists:nth(random:uniform(8), ["northwest", "north",
           "northeast", "east", "southeast", "south", "southwest", "west"]);
-    [Character] ->
-      MyPosition = nav:position(dict:fetch(location, Zombie)),
-      TargetPosition = Character,
-      Direction = nav:direction(MyPosition, TargetPosition);
-    CharacterList ->
-      MyPosition = nav:position(dict:fetch(location, Zombie)),
-      TargetPosition = character:find_closest(MyPosition, CharacterList),
-      Direction = nav:direction(MyPosition, TargetPosition)
+    Target ->
+      MyPosition = dict:fetch(location, Zombie),
+      Direction = nav:direction(MyPosition, Target)
   end,
   {walk, {Zombie, Direction}}.
 

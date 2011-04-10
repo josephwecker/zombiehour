@@ -1,5 +1,5 @@
 -module(nav).
--export([position/1, distance/2, direction/2, neighbor/2]).
+-export([position/1, distance/2, direction/2, neighbor/2, get_quadrant/3]).
 
 position(Location) ->
   [XStr, YStr] = string:tokens(Location, "XY"),
@@ -22,7 +22,7 @@ direction({X1, Y1}, {X2, Y2}) ->
     Y1 < Y2 ->
       NS = "north";
     Y1 > Y2 ->
-      NS = "south"
+      NS = "south"%
   end,
   if
     X1 == X2 ->
@@ -63,8 +63,75 @@ neighbor(Origin, Direction) ->
   end,
   Neighbor.
     
+get_quadrant(Origin, Direction, Length) ->
+  %Directions = ["northwest", "north", "northeast", "east",
+  %  "southeast", "south", "southwest", "west"],
+  %A = Direction,
+  %B = Directions[Direction -1 ],
+  %C = Directions[Direction +1 ],
 
+  case Direction of
+    "north" ->
+      A = "north",
+      B = "northwest",
+      C = "northeast";
+    "northeast" ->
+      A = "northeast",
+      B = "north",
+      C = "east";
+    "east" ->
+      A = "east",
+      B = "northeast",
+      C = "southeast";
+    "southeast" ->
+      A = "southeast",
+      B = "east",
+      C = "south";
+    "south" ->
+      A = "south",
+      B = "southeast",
+      C = "southwest";
+    "southwest" ->
+      A = "southwest",
+      B = "south",
+      C = "west";
+    "west" ->
+      A = "west",
+      B = "southwest",
+      C = "northwest";
+    "northwest" ->
+      A = "northwest",
+      B = "west",
+      C = "north"
+  end,
 
-%get_cone(Origin, Direction) ->
-%  Directions = ["northwest", "north", "northeast", "east",
-%    "southeast", "south", "southwest", "west"],
+  Start = neighbor(Origin, A),
+  Left = neighbor(Start, B),
+  Right = neighbor(Start, C),
+  LatestTiles = [neighbor(Start, A), Left, Right],
+  lists:append([Start|LatestTiles],
+    add_to_quadrant(A, B, C, LatestTiles, Left, Right, Length -2)).
+
+add_to_quadrant(A, B, C, LatestTiles, Left, Right, 1) ->
+  NewLeft = neighbor(Left, B),
+  NewRight = neighbor(Right, C),
+  lists:append(
+    lists:map(
+      fun(Tile) ->
+          neighbor(Tile, A)
+      end,
+      LatestTiles),
+    [NewLeft, NewRight]);
+
+add_to_quadrant(A, B, C, LatestTiles, Left, Right, Length) ->
+  NewLeft = neighbor(Left, B),
+  NewRight = neighbor(Right, C),
+  NewLatestTiles = lists:append(
+    lists:map(
+      fun(Tile) ->
+          neighbor(Tile, A)
+      end,
+      LatestTiles),
+    [NewLeft, NewRight]),
+  lists:append(NewLatestTiles,
+    add_to_quadrant(A, B, C, NewLatestTiles, NewLeft, NewRight, Length -1)).

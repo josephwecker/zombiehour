@@ -1,40 +1,47 @@
 -module(character).
--export([observe_characters/1, find_closest/2]).
+-export([find_target/1, find_target/2]).
 
-observe_characters(Character) ->
-  ScenarioMap = dict:fetch(map, Character),
+find_target(Character) ->
+  Tiles = dict:fetch(visible_tiles, Character),
+  target(Character, Tiles).
+
+find_target(Character, Direction) ->
+  Origin = dict:fetch(location, Character),
+  Tiles = nav:get_quadrant(Origin, Direction, dict:fetch(sight,Character)),
   VisibleTiles = dict:fetch(visible_tiles, Character),
-  {X,Y} = nav:position(dict:fetch(location, Character)),
-  lists:flatten(
-  lists:map(
-    fun(Row) ->
-        lists:flatten(
-        lists:map(
-          fun(Col) ->
-              Key = tile:coords_to_key( Col, Row ),
-              case lists:member(Key, VisibleTiles) of
-                false ->
-                  [];
-                true ->
-                  {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                  case dict:fetch(character, Tile) of
-                    nil ->
-                      [];
-                    OtherCharacter ->
-                      case dict:fetch(zombified, OtherCharacter) of
-                        false ->
-                          {Col, Row};
-                        true ->
-                          []
-                      end
-                  end
-              end
-          end,
-          lists:seq(X-7,X+7)))
+  TargetTiles = [ X || X <- Tiles, lists:member(X, VisibleTiles) ],
+  target(Character, TargetTiles).
+
+target(Character, Tiles) ->
+  Map = dict:fetch(map, Character),
+  Targets = lists:flatmap(
+    fun(Tile) ->
+        {Tile, TileData} = digraph:vertex(Map, Tile),
+        case dict:fetch(character, TileData) of
+          nil ->
+            [];
+          OtherCharacter ->
+            case dict:fetch(zombified, OtherCharacter) /= dict:fetch(zombified, Character) of
+              true ->
+                [Tile];
+              false ->
+                []
+            end
+        end
     end,
-    lists:seq(Y-7,Y+7))).
+    Tiles),
+  Origin = dict:fetch(location, Character),
+  case Targets of
+    [] ->
+      false;
+    [Target] ->
+      Target;
+    Targets ->
+      find_closest(Origin, Targets)
+  end.
 
 find_closest(Origin, Characters) ->
+  %io:format("~p~p~n",[Origin, Characters]),
   [H|T] = Characters,
   find_closest(Origin, T, H).
 
