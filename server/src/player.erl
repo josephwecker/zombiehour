@@ -45,6 +45,17 @@ learn_tiles(Map, Tiles) ->
     end,
     Tiles)).
 
+queue_to_string([]) ->
+  "ready";
+
+queue_to_string(Queue) ->
+  lists:flatmap(
+    fun({Action, {player, Value}}) ->
+        lists:concat([atom_to_list(Action), " ", Value, "<br />"])
+    end,
+    Queue).
+
+
 update_queue(Player, Request) ->
   case Request of
     nil ->
@@ -57,7 +68,9 @@ update_queue(Player, Request) ->
         _ ->
           NewQueue = lists:append(Queue, [Request])
       end,
-      dict:store(queue, NewQueue, Player)
+      QS = queue_to_string(NewQueue),
+      Player1 = dict:store(queuestring, QS, Player),
+      dict:store(queue, NewQueue, Player1)
   end.
 
 do_request(Scenario, Player, {Action, {player, Value}}) ->
@@ -94,27 +107,33 @@ handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
     0 ->
       case dict:fetch(locked, Player) of
         true ->
+          Update1 = Update,
           NewPlayer = Player;
         false ->
           case dict:fetch(queue, Player) of
             [] ->
+              Update1 = Update,
               NewPlayer = Player;
             [Request|NewQueue] ->
               do_request(Scenario, Player, Request),
               Player1 = dict:store(locked, true, Player),
-              NewPlayer = dict:store(queue, NewQueue, Player1)
+              QS = queue_to_string(NewQueue),
+              Player2 = dict:store(queuestring, QS, Player1),
+              Update1 = update_stat(queuestring, Update),
+              NewPlayer = dict:store(queue, NewQueue, Player2)
           end
       end;
     Num ->
+      Update1 = update_stat(cooldown, Update),
       NewPlayer = dict:update_counter(cooldown, -1, Player)
   end,
   case Address of
     inactive ->
       NewAddress = Address,
-      NewUpdate = Update;
+      NewUpdate = Update1;
     Address ->
-      {Feedback, Map, Stats} = Update,
-      Map2 = build_map(Player),
+      {Feedback, Map, Stats} = Update1,
+      Map2 = build_map(NewPlayer),
       case Map2 == Map of
         true ->
           MapData = "nil",
@@ -137,12 +156,12 @@ handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
         Stats ->
           StatData = lists:map(
             fun(Stat) ->
-                lists:concat([Stat,",",dict:fetch(Stat, Player),";"])
+                lists:concat([Stat,",",dict:fetch(Stat, NewPlayer),";"])
             end,
             Stats)
       end,
 
-      %Data = lists:concat(["name,",dict:fetch(tag, Player)]),
+      %Data = lists:concat(["name,",dict:fetch(tag, NewPlayer)]),
       case MapData == "nil" andalso StatData == "nil" andalso FeedbackMsg == "nil" of
         true ->
           NewAddress = Address;
@@ -177,14 +196,14 @@ handle_cast({take_damage, Amt}, {Player, U, {A, Scenario}}) ->
   NewUpdate = update_stat(hp, U),
   case dict:fetch(hp, NewPlayer) >= 1 of
     true ->
-      ok;
+      gen_server:cast(Scenario, {update_self, NewPlayer});
     false ->
       gen_server:cast(Scenario, {die, NewPlayer})
   end,
   {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
 
 handle_cast({msg, Msg}, {P, {Feedback, M, S}, A}) ->
-  NewFeedback = lists:concat([Feedback, Msg, "<br/>"]),
+  NewFeedback = lists:concat([Feedback,"<span class='combat_msg'>", Msg, "</span><br/>"]),
   {noreply, {P, {NewFeedback, M, S}, A}};
 
 handle_cast({hear, Msg}, {P, {Feedback, M, S}, A}) ->
@@ -203,6 +222,11 @@ handle_cast({lose_ammo, Amount}, {Player, U, A}) ->
   NewUpdate = update_stat(ammo, U),
   {noreply, {NewPlayer, NewUpdate, A}};
 
+handle_cast(update_all, {Player, {F, _Map, _Stats}, A}) ->
+  Stats = [tag, ammo, hp],
+  {noreply, {Player, {F, [], Stats}, A}};
+
+
 handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
   case Param of
     "say" ->
@@ -217,7 +241,8 @@ handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
   end,
   NewPlayer = update_queue(Player, Request),
-  {noreply, {NewPlayer, U, A}};
+  NewUpdate = update_stat(queuestring, U),
+  {noreply, {NewPlayer, NewUpdate, A}};
 
 handle_cast(unlock, {Player, U, A}) ->
   NewPlayer = dict:store(locked, false, Player),

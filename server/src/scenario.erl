@@ -26,6 +26,14 @@ init([]) ->
 %Tile functions... (maybe should go in separate module?)
 % End of tile functions...
 
+update_map(Character) ->
+  Map = dict:fetch(map, Character),
+  Vertex = dict:fetch(location, Character),
+  {Vertex, Tile} = digraph:vertex(Map, Vertex),
+  NewTile = dict:store(character, Character, Tile),
+  NewTile2 = tile:update_sym(NewTile),
+  digraph:add_vertex(Map, Vertex, NewTile2).
+
 update_map(Map, Vertex, Attr, Value) ->
   {Vertex, Tile} = digraph:vertex(Map, Vertex),
   case Attr of
@@ -81,15 +89,21 @@ handle_cast({attack, {Attacker, Direction}}, {C, Z, Map}) ->
       case random:uniform(2) of
         1 ->
           gen_server:cast(Pid, {msg, "You miss."}),
-          gen_server:cast(TPid, {msg, "The Zombie swings at you but misses."})
-          ;
+          gen_server:cast(TPid, {msg, "The Zombie swings at you but misses."});
         2 ->
-          gen_server:cast(Pid, {msg, "You hit."}),
-          gen_server:cast(TPid, {take_damage, 2}),
-          gen_server:cast(TPid, {msg, "You take 2 damage"})
+          Damage = 2,
+          gen_server:cast(TPid, {take_damage, Damage}),
+          case dict:fetch(hp, Target) =< Damage of
+            true ->
+              gen_server:cast(Pid, {msg, "You hit and kill your opponent."}),
+              gen_server:cast(TPid, {msg, "You take <span class='dmg'>2 damage</span> and <span class='dmg'>die</span>."});
+            false ->
+              gen_server:cast(Pid, {msg, "You hit."}),
+              gen_server:cast(TPid, {msg, "You take <span class='dmg'>2 damage</span>."})
+          end
       end
   end,
-  gen_server:cast(Pid, {heat_up, 8}),
+  gen_server:cast(Pid, {heat_up, 16}),
   gen_server:cast(Pid, unlock),
   {noreply, {C, Z, Map}};
 
@@ -109,17 +123,23 @@ handle_cast({shoot, {Attacker, Direction}}, {C, Z, Map}) ->
               gen_server:cast(Pid, {msg, "Your target evades."})
               ;
             Target ->
+              TPid = dict:fetch(id,Target),
               case random:uniform(2) of
                 1 ->
                   gen_server:cast(Pid, {msg, "Your shot misses."});
                 2 ->
-                  gen_server:cast(Pid, {msg, "You shot the Zomber."}),
-                  TPid = dict:fetch(id,Target),
-                  gen_server:cast(TPid, {take_damage, 2})
+                  Damage = 2,
+                  gen_server:cast(TPid, {take_damage, Damage}),
+                  case dict:fetch(hp, Target) =< Damage of
+                    true ->
+                      gen_server:cast(Pid, {msg, "You shoot and kill your opponent."});
+                    false ->
+                      gen_server:cast(Pid, {msg, "You shot the Zomber."})
+                  end
               end
           end,
           gen_server:cast(Pid, {lose_ammo, 1}),
-          gen_server:cast(Pid, {heat_up, 8})
+          gen_server:cast(Pid, {heat_up, 16})
       end;
     false ->
       gen_server:cast(Pid, {msg, "You don't have any ammunition left."})
@@ -160,9 +180,9 @@ handle_cast({walk, {Character, Direction}}, {C, Z, Map}) ->
               gen_server:cast(Pid, {update_character, {location, NewLocation}}),
               case dict:fetch(zombified, Character) of
                 true ->
-                  gen_server:cast(Pid, {heat_up, 10});
+                  gen_server:cast(Pid, {heat_up, 20});
                 false ->
-                  gen_server:cast(Pid, {heat_up, 8})
+                  gen_server:cast(Pid, {heat_up, 16})
               end,
               gen_server:cast(Pid, unlock)
           end
@@ -181,6 +201,10 @@ handle_cast({die, Character}, {C, Z, Map}) ->
   Location = dict:fetch(location, Character),
   update_map(Map, Location, character, nil),
   {noreply, NS};
+
+handle_cast({update_self, Character}, {C, Z, Map}) ->
+  update_map(Character),
+  {noreply, {C, Z, Map}};
 
 handle_cast({say, {Character, Msg}}, {Characters, _Z, _} = State) ->
   Name = dict:fetch(tag, Character),

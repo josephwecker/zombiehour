@@ -58,12 +58,11 @@ handle_cast({take_damage, Amt}, {Zombie, Scenario}) ->
   NewZombie = dict:update_counter(hp, -Amt, Zombie),
   case dict:fetch(hp, NewZombie) >= 1 of
     true ->
-      {noreply, {NewZombie, Scenario}};
+      gen_server:cast(Scenario, {update_self, NewZombie});
     false ->
-      gen_server:cast(Scenario, {die, NewZombie}),
-      %{stop, death, {NewZombie, Scenario}}
-      {noreply, {NewZombie, Scenario}}
-  end;
+      gen_server:cast(Scenario, {die, NewZombie})
+  end,
+  {noreply, {NewZombie, Scenario}};
 
 handle_cast({update_character, {Attr, Value}}, {Zombie, S}) ->
   case Attr of

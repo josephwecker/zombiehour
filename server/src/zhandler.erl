@@ -138,7 +138,8 @@ handle('GET', [], Cookie, Req) ->
           io:format("~p~n", ["This probably wont ever show..."]),
           Req:file("menu.html");
         Character ->
-          Req:file("game.html")
+          Req:file("game.html"),
+          gen_server:cast(Character, update_all)
       end;
     false -> 
       %io:format("~p~n", [ets:tab2list(Table)]),
@@ -148,7 +149,8 @@ handle('GET', [], Cookie, Req) ->
 handle('POST', [], Cookie, Req) ->
   Name = proplists:get_value("name", Req:parse_post()),
   create_character(Cookie, Name),
-  handle('GET', [], Cookie, Req);
+  Req:respond(302, [{"Location", "/game/"}], "");
+  %handle('GET', [], Cookie, Req);
 
 handle('POST', ["data"], Cookie, Req) ->
 	Req:respond(204, [], ""),

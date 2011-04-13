@@ -58,7 +58,7 @@ function pressKey(Key) {
   keyPresses.push(Key);
   if( timing ){
     timing = false;
-    t = setTimeout("doCommand(pickDirection())", 20);
+    t = setTimeout("doCommand(pickDirection())", 50);
   }
 }
 
@@ -91,6 +91,7 @@ function tick_queue() {
 function update_stat(obj, value) {
   //alert(obj+" " +value);
   $("#"+obj).html(value);
+  $("#"+obj).change();
 }
 
 function open_chat() {
@@ -130,9 +131,9 @@ function get_data() {
       start_time = d.getTime();
       
       get_data();
+      update_map(data.map);
       append_log(data.msg);
       //update_flash(data.flash);
-      update_map(data.map);
       update_data(data.data);
 
       var t = new Date();
@@ -187,5 +188,8 @@ $(document).ready( function() {
         $("#r"+r).append('<td id="r'+r+'c'+c+'"></td>');
       }
     }
+    $('#cooldown').change(function() {
+      $('#action_bar .filling').css('left',$('#cooldown').html()*2);
+    });
  //   update_queue();
 });
