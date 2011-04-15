@@ -27,6 +27,14 @@ $(document).bind(
     "keydown", "j", function (evt) {
     command = "shoot";
     });
+$(document).bind(
+    "keydown", "k", function (evt) {
+    command = "close";
+    });
+$(document).bind(
+    "keydown", "l", function (evt) {
+    command = "open";
+    });
 
 function pickDirection() {
   var direction;

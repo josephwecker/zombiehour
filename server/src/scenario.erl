@@ -39,7 +39,7 @@ update_map(Character) ->
   Vertex = dict:fetch(location, Character),
   {Vertex, Tile} = digraph:vertex(Map, Vertex),
   NewTile = dict:store(character, Character, Tile),
-  NewTile2 = tile:update_sym(NewTile),
+  NewTile2 = tile:update_tile(NewTile),
   digraph:add_vertex(Map, Vertex, NewTile2).
 
 update_map(Map, Vertex, Attr, Value) ->
@@ -48,18 +48,18 @@ update_map(Map, Vertex, Attr, Value) ->
     character ->
       case Value of
         nil ->
-          Tile2 = dict:store(character, nil, Tile),
-          NewTile = dict:store(movement, true, Tile2);
+          NewTile = dict:store(character, nil, Tile);
         Value ->
           Character = gen_server:call(Value, character),
-          Tile2   = dict:store(movement, false, Tile),
-          NewTile = dict:store(character, Character, Tile2)
+          NewTile = dict:store(character, Character, Tile)
       end;
+    value ->
+      NewTile = dict:store(value, Value, Tile);      
     Attr ->
       io:format("No update function for: ~p~n",[Attr]),
       NewTile = Tile
   end,
-  NewTile2 = tile:update_sym(NewTile),
+  NewTile2 = tile:update_tile(NewTile),
   digraph:add_vertex(Map, Vertex, NewTile2).
 
 handle_call({create_character, Name}, _From, {{{Characters, Z},B,{ZP,CP}}, Map}) ->
@@ -195,6 +195,38 @@ handle_cast({walk, {Character, Direction}}, {C, Map}) ->
           end
       end
   end,
+  {noreply, {C, Map}};
+
+handle_cast({open, {Character, Direction}}, {C, Map}) ->
+  Location = dict:fetch(location, Character),
+  Target = nav:neighbor(Location, Direction),
+  {Target, TileData} = digraph:vertex(Map, Target),
+  Pid = dict:fetch(id, Character),
+  case dict:fetch(type,TileData) of
+    door ->
+      update_map(Map, Target, value, opened),
+      gen_server:cast(Pid, {update_character, {location, Location}}),
+      gen_server:cast(Pid, {heat_up, 8});
+    _ ->
+      gen_server:cast(Pid, {msg, "There's no door there."})
+  end,
+  gen_server:cast(Pid, unlock),
+  {noreply, {C, Map}};
+
+handle_cast({close, {Character, Direction}}, {C, Map}) ->
+  Location = dict:fetch(location, Character),
+  Target = nav:neighbor(Location, Direction),
+  Pid = dict:fetch(id, Character),
+  {Target, TileData} = digraph:vertex(Map, Target),
+  case dict:fetch(type,TileData) of
+    door ->
+      update_map(Map, Target, value, closed),
+      gen_server:cast(Pid, {update_character, {location, Location}}),
+      gen_server:cast(Pid, {heat_up, 8});
+    _ ->
+      gen_server:cast(Pid, {msg, "There's no door there."})
+  end,
+  gen_server:cast(Pid, unlock),
   {noreply, {C, Map}};
 
 handle_cast({die, Character}, {{{C, Z},B,S}, Map}) ->

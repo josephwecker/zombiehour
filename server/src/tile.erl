@@ -1,5 +1,5 @@
 -module(tile).
--export([initialize_map/1, coords_to_key/2, dir_to_key/2, update_sym/1]).
+-export([initialize_map/1, coords_to_key/2, dir_to_key/2, update_tile/1]).
 
 initialize_map(Map) ->
   MapData = map_data2(),
@@ -34,17 +34,17 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
   Attrs = [{x, X}, {y, Y}, {character, nil}],
   case Value of
     0 ->
-      Attrs2 = [{type, map_boundary}, {movement, false}, {visible, false}];
+      Attrs2 = [{type, map_boundary}];
     2 ->
-      Attrs2 = [{type, wall}, {movement, false}, {visible, false}];
+      Attrs2 = [{type, wall}];
     3 ->
-      Attrs2 = [{type, door}, {movement, true}, {visible, false}];
+      Attrs2 = [{type, door}, {value, closed}];
     5 ->
-      Attrs2 = [{type, obstacle}, {movement, false}, {visible, true}];
+      Attrs2 = [{type, obstacle}];
     6 ->
-      Attrs2 = [{type, window}, {movement, false}, {visible, true}];
+      Attrs2 = [{type, window}, {value, broken}];
     _ ->
-      Attrs2 = [{type, space}, {movement, true}, {visible, true}]
+      Attrs2 = [{type, space}]
   end,
   case Value of
     h ->
@@ -58,34 +58,34 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
       ZSpawn = []
   end,
   Tile = dict:from_list(lists:append(Attrs, Attrs2)),
-  Tile2 = update_sym(Tile),
+  Tile2 = update_tile(Tile),
   %vertex = {"x000y000", Tile}
   digraph:add_vertex(Map, Key, Tile2),
   {ZSpawn, HSpawn}.
 
-initialize_neighbors( Tile, Map, XBound, YBound ) ->
-  {Tile, TileData} = digraph:vertex(Map, Tile),
-  X = dict:fetch(x, TileData),
-  Y = dict:fetch(y, TileData),
-  {X1, X, X2} = find_bound(X, XBound),
-  {Y1, Y, Y2} = find_bound(Y, YBound),
-  List = [
-    {"northwest", coords_to_key( X1, Y2 )},
-    {"north"    , coords_to_key( X , Y2 )},
-    {"northeast", coords_to_key( X2, Y2 )},
-    {     "east", coords_to_key( X2, Y  )},
-    {"southeast", coords_to_key( X2, Y1 )},
-    {"south"    , coords_to_key( X , Y1 )},
-    {"southwest", coords_to_key( X1, Y1 )},
-    {     "west", coords_to_key( X1, Y  )}],
-  lists:foreach(
-    fun(ListItem) ->
-        {Direction, NTile} = ListItem,
-        Key = dir_to_key(Tile, Direction),
-        %edge   = {"x000y000direction", []}
-        digraph:add_edge(Map, Key, Tile, NTile, [])
-    end,
-    List).
+%initialize_neighbors( Tile, Map, XBound, YBound ) ->
+%  {Tile, TileData} = digraph:vertex(Map, Tile),
+%  X = dict:fetch(x, TileData),
+%  Y = dict:fetch(y, TileData),
+%  {X1, X, X2} = find_bound(X, XBound),
+%  {Y1, Y, Y2} = find_bound(Y, YBound),
+%  List = [
+%    {"northwest", coords_to_key( X1, Y2 )},
+%    {"north"    , coords_to_key( X , Y2 )},
+%    {"northeast", coords_to_key( X2, Y2 )},
+%    {     "east", coords_to_key( X2, Y  )},
+%    {"southeast", coords_to_key( X2, Y1 )},
+%    {"south"    , coords_to_key( X , Y1 )},
+%    {"southwest", coords_to_key( X1, Y1 )},
+%    {     "west", coords_to_key( X1, Y  )}],
+%  lists:foreach(
+%    fun(ListItem) ->
+%        {Direction, NTile} = ListItem,
+%        Key = dir_to_key(Tile, Direction),
+%        %edge   = {"x000y000direction", []}
+%        digraph:add_edge(Map, Key, Tile, NTile, [])
+%    end,
+%    List).
 
 coords_to_key(XInt,YInt) ->
   X = integer_to_list(XInt),
@@ -95,47 +95,86 @@ coords_to_key(XInt,YInt) ->
 dir_to_key(Tile, Dir) ->
   lists:concat([Tile, Dir]).
 
-find_bound(D, Limit) ->
-  case D of
-    1 ->
-      D1 = D,
-      D2 = D + 1;
-    Limit ->
-      D1 = D - 1,
-      D2 = D;
-    D ->
-      D1 = D - 1,
-      D2 = D + 1
-  end,
-  {D1, D, D2}.
+%find_bound(D, Limit) ->
+%  case D of
+%    1 ->
+%      D1 = D,
+%      D2 = D + 1;
+%    Limit ->
+%      D1 = D - 1,
+%      D2 = D;
+%    D ->
+%      D1 = D - 1,
+%      D2 = D + 1
+%  end,
+%  {D1, D, D2}.
 
-
-update_sym(Tile) ->
+update_tile(Tile) ->
   case dict:fetch(character, Tile) of
     nil ->
       case dict:fetch(type, Tile) of
         map_boundary ->
+          Visible = false,
+          Movement = false,
           Symbol = "2";
         space ->
+          Visible = true,
+          Movement = true,
           Symbol = "1";
         wall ->
+          Visible = false,
+          Movement = false,
           Symbol = "2";
         door ->
-          Symbol = "3";
+          case dict:fetch(value, Tile) of
+            closed ->
+              Visible = false,
+              Movement = false,
+              Symbol = "3";
+            opened ->
+              Visible = true,
+              Movement = true,
+              Symbol = "4";
+            broken ->
+              Visible = true,
+              Movement = true,
+              Symbol = "5"
+          end;
         window ->
-          Symbol = "4";
+          case dict:fetch(value, Tile) of
+            closed ->
+              Visible = true,
+              Movement = false,
+              Symbol = "6";
+            opened ->
+              Visible = true,
+              Movement = false,
+              Symbol = "7";
+            broken ->
+              Visible = true,
+              Movement = true,
+              Symbol = "8"
+          end;
         obstacle ->
-          Symbol = "5"
+          Visible = true,
+          Movement = false,
+          Symbol = "9"
       end;
     Character ->
       case dict:fetch(zombified, Character) of
         true ->
-          Symbol = "7";
+          Visible = true,
+          Movement = false,
+          Symbol = "11";
         false ->
-          Symbol = "8"
+          Visible = true,
+          Movement = false,
+          Symbol = "12"
       end
   end,
-  dict:store(symbol, Symbol, Tile).
+  Tile1 = dict:store(symbol, Symbol, Tile),
+  Tile2 = dict:store(visible, Visible, Tile1),
+  dict:store(movement, Movement, Tile2).
 
 map_data2() ->
   lists:reverse([

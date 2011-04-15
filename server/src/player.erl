@@ -40,7 +40,7 @@ learn_tiles(Map, Tiles) ->
   lists:keysort(1, lists:map(
     fun(Key) ->
         {Key, Tile} = digraph:vertex(Map, Key),
-        Sym = integer_to_list(list_to_integer(dict:fetch(symbol, Tile))+8),
+        Sym = integer_to_list(list_to_integer(dict:fetch(symbol, Tile))+12),
         {Key, Sym}
     end,
     Tiles)).
@@ -250,6 +250,10 @@ handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
       Request = {walk, {player, Value}};
     "shoot" ->
       Request = {shoot, {player, Value}};
+    "open" ->
+      Request = {open, {player, Value}};
+    "close" ->
+      Request = {close, {player, Value}};
     Param ->
       Request = nil,
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
