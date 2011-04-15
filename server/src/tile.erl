@@ -38,11 +38,11 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
     2 ->
       Attrs2 = [{type, wall}];
     3 ->
-      Attrs2 = [{type, door}, {value, closed}];
+      Attrs2 = [{type, door}, {value, broken}];
     5 ->
       Attrs2 = [{type, obstacle}];
     6 ->
-      Attrs2 = [{type, window}, {value, broken}];
+      Attrs2 = [{type, window}, {value, closed}];
     _ ->
       Attrs2 = [{type, space}]
   end,
