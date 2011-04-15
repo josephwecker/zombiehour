@@ -86,11 +86,12 @@ update_stat(Atom, {F, M, Stat}) ->
 
 init([Name, Scenario, Map, Location]) ->
   Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {hp, 20},
-    {map, Map}, {ammo, 10},
+    {map, Map}, {ammo, 10}, {kills,0}, {living, ""}, {board, ""},
     {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8}, {zombified, false}],
   Player = dict:from_list(Attrs),
   gen_server:cast(self(), {update_character, {location, Location}}),
-  Update = {[],[],[tag,hp,ammo]},
+  gen_server:cast(Scenario, {update_board, Player}),
+  Update = {[],[],[tag,hp,ammo,board]},
   Addresses = {inactive, Scenario},
   {ok, {Player, Update, Addresses}}.
 
@@ -192,15 +193,23 @@ handle_cast({update_character, {Attr, Value}}, {Player, U, A}) ->
   {noreply, {NewPlayer, U, A}};
 
 handle_cast({take_damage, Amt}, {Player, U, {A, Scenario}}) ->
-  NewPlayer = dict:update_counter(hp, -Amt, Player),
+  Player1 = dict:update_counter(hp, -Amt, Player),
   NewUpdate = update_stat(hp, U),
-  case dict:fetch(hp, NewPlayer) >= 1 of
+  case dict:fetch(hp, Player1) >= 1 of
     true ->
+      NewPlayer = Player1,
       gen_server:cast(Scenario, {update_self, NewPlayer});
     false ->
-      gen_server:cast(Scenario, {die, NewPlayer})
+      NewPlayer = dict:store(living, "deceased", Player1),
+      gen_server:cast(Scenario, {die, NewPlayer}),
+      gen_server:cast(Scenario, {update_board, NewPlayer})
   end,
   {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
+
+handle_cast(get_kill, {Player, U, {A, Scenario}}) ->
+  NewPlayer = dict:update_counter(kills, 1, Player),
+  gen_server:cast(Scenario, {update_board, NewPlayer}),
+  {noreply, {NewPlayer, U, {A, Scenario}}};
 
 handle_cast({msg, Msg}, {P, {Feedback, M, S}, A}) ->
   NewFeedback = lists:concat([Feedback,"<span class='combat_msg'>", Msg, "</span><br/>"]),
@@ -222,8 +231,13 @@ handle_cast({lose_ammo, Amount}, {Player, U, A}) ->
   NewUpdate = update_stat(ammo, U),
   {noreply, {NewPlayer, NewUpdate, A}};
 
+handle_cast({update_board, Board}, {Player, U, A}) ->
+  NewPlayer = dict:store(board, Board, Player),
+  NewUpdate = update_stat(board, U),
+  {noreply, {NewPlayer, NewUpdate, A}};
+
 handle_cast(update_all, {Player, {F, _Map, _Stats}, A}) ->
-  Stats = [tag, ammo, hp],
+  Stats = [tag, ammo, hp, board],
   {noreply, {Player, {F, [], Stats}, A}};
 
 

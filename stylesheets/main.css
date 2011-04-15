@@ -19,6 +19,8 @@ div {
 	top: 10px;
 }
 
+#main { width:600px; }
+
 h1 {
 	color: #bb1010;
 	font-size: 60;
@@ -31,12 +33,17 @@ h2 {
 	font-size: 40;
 	font-family: 'DowncomeRegular';
 	font-weight: normal;
+	margin:10px;
 }
 
 h3 {
 	font-size: 30;
 	font-family: 'DowncomeRegular';
+	font-weight: normal;
+	margin:2px;
 }
+
+#board{ font-size:10; }
 
 a { 
 	color: #bb1010;

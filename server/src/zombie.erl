@@ -83,6 +83,9 @@ handle_cast(unlock, {Zombie, S}) ->
 handle_cast({msg, _Msg}, {Z, S}) ->
   {noreply, {Z, S}};
 
+handle_cast(get_kill, State) ->
+  {noreply, State};
+
 handle_cast({hear, _Msg}, {Z, S}) ->
   % do something like the sound source is intriguing to the zombman, so if
   % he's not doing anything important, than he'll investigate.
