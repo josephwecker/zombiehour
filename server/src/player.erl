@@ -86,7 +86,7 @@ update_stat(Atom, {F, M, Stat}) ->
 
 init([Name, Scenario, Map, Location]) ->
   Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {hp, 20},
-    {map, Map}, {ammo, 10}, {kills,0}, {living, ""}, {board, ""},
+    {map, Map}, {ammo, 10}, {kills,0}, {living, ""}, {board,""}, {queuestring,""),
     {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8}, {zombified, false}],
   Player = dict:from_list(Attrs),
   gen_server:cast(self(), {update_character, {location, Location}}),
