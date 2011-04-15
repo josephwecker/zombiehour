@@ -19,7 +19,7 @@ create(Attrs) ->
 
 init([Scenario, Position, Map]) ->
   Attrs = [{id, self()}, {location, Position}, {cooldown, 0}, {map, Map},
-    {tag, "Zomber"}, {hp, 6}, {visible_tiles, []}, {sight, 7}, {locked, false},
+    {tag, "Zomber"}, {hp, 12}, {visible_tiles, []}, {sight, 7}, {locked, false},
     {zombified, true}],
   Zombie = dict:from_list(Attrs),
   {ok, {Zombie, Scenario}}.
