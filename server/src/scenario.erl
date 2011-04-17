@@ -7,6 +7,7 @@ start() ->
   gen_server:start_link(?MODULE, [], []).
 
 init([]) ->
+  process_flag(trap_exit, true),
   Self = self(),
   Map = digraph:new(),
   SpawnPoints = {ZSpawn, _} = tile:initialize_map(Map),
@@ -18,7 +19,11 @@ init([]) ->
     lists:seq(1,30)),
   spawn(fun() -> tick:tick(Self, 100) end),
   Board = [],
-  {ok, {{{Characters, Zombies}, Board, SpawnPoints}, Map}}.
+  StartTime = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
+  ZombiesLeft = length(Zombies),
+  %CharactersAlive = TotalCharacters = length(Characters),
+  Objectives = {StartTime, ZombiesLeft, {0,0}},
+  {ok, {{{Characters, Zombies}, Board, SpawnPoints}, Map, Objectives}}.
 
 %Tile functions... (maybe should go in separate module?)
 % End of tile functions...
@@ -62,25 +67,48 @@ update_map(Map, Vertex, Attr, Value) ->
   NewTile2 = tile:update_tile(NewTile),
   digraph:add_vertex(Map, Vertex, NewTile2).
 
-handle_call({create_character, Name}, _From, {{{Characters, Z},B,{ZP,CP}}, Map}) ->
+check_objectives({{{Characters, Zombies}, _, _}, _, {T,ZL,{CLength,CLivingLength}}} = State) ->
+  case ZL < 1 of
+    true ->
+      {stop, normal, {Characters, Zombies}};
+    false ->
+      case CLength >= 1 andalso CLivingLength =< 0 of
+        true ->
+          {stop, normal, {Characters, Zombies}};
+        false ->
+          TimeNow = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
+          case TimeNow - T >= 1800 of
+            true ->
+              {stop, normal, {Characters, Zombies}};
+            false ->
+              {noreply, State}
+          end
+      end
+  end.
+
+handle_call({create_character, Name}, _From, {{{Characters, Z},B,{ZP,CP}}, Map,
+    {T, ZL, {CLength, CLivingLength}}}) ->
   Character = spawn_player(Map, CP, [Name]),
   NewCharacters = [Character|Characters],
-  {reply, Character, {{{NewCharacters, Z},B,{ZP,CP}}, Map}};
+  {reply, Character, {{{NewCharacters, Z},B,{ZP,CP}}, Map, {T, ZL, {CLength + 1,
+          CLivingLength + 1}}}};
 
-handle_call(_Request, _From, State) ->
+handle_call(Request, _From, State) ->
+  io:format("Scenario received unknown call: ~p when State was: ~p~n~n~n",[Request,
+      State]),
   Reply = ok,
   {reply, Reply, State}.
 
-handle_cast(tick, {{{Characters, Zombies}, _, _}, _} = State) ->
+handle_cast(tick, {{{Characters, Zombies}, _, _}, _, _} = State) ->
   lists:foreach(fun(Character) -> gen_server:cast(Character, tick) end, Characters),
   lists:foreach(fun(Zombie) -> gen_server:cast(Zombie, tick) end, Zombies),
-  {noreply, State};
+  check_objectives(State);
 
 handle_cast({wait, Pid}, State) ->
   gen_server:cast(Pid, unlock),
   {noreply, State};
 
-handle_cast({attack, {Attacker, Direction}}, {C, Map}) ->
+handle_cast({attack, {Attacker, Direction}}, {C, Map, O}) ->
   Neighbor = nav:neighbor(dict:fetch(location, Attacker), Direction),
   {Neighbor, NbrTile} = digraph:vertex(Map, Neighbor),
   Target = dict:fetch(character, NbrTile),
@@ -111,9 +139,9 @@ handle_cast({attack, {Attacker, Direction}}, {C, Map}) ->
   end,
   gen_server:cast(Pid, {heat_up, 16}),
   gen_server:cast(Pid, unlock),
-  {noreply, {C, Map}};
+  {noreply, {C, Map, O}};
 
-handle_cast({shoot, {Attacker, Direction}}, {C, Map}) ->
+handle_cast({shoot, {Attacker, Direction}}, {C, Map, O}) ->
   Pid = dict:fetch(id, Attacker),
   Tile = character:find_target(Attacker, Direction),
   case dict:fetch(ammo, Attacker) >= 1 of
@@ -152,9 +180,9 @@ handle_cast({shoot, {Attacker, Direction}}, {C, Map}) ->
       gen_server:cast(Pid, {msg, "You don't have any ammunition left."})
   end,
   gen_server:cast(Pid, unlock),
-  {noreply, {C, Map}};
+  {noreply, {C, Map, O}};
 
-handle_cast({walk, {Character, Direction}}, {C, Map}) ->
+handle_cast({walk, {Character, Direction}}, {C, Map, O}) ->
   Pid = dict:fetch(id, Character),
   case Direction of
     "" ->
@@ -195,9 +223,9 @@ handle_cast({walk, {Character, Direction}}, {C, Map}) ->
           end
       end
   end,
-  {noreply, {C, Map}};
+  {noreply, {C, Map, O}};
 
-handle_cast({open, {Character, Direction}}, {C, Map}) ->
+handle_cast({open, {Character, Direction}}, {C, Map, O}) ->
   Location = dict:fetch(location, Character),
   Target = nav:neighbor(Location, Direction),
   {Target, TileData} = digraph:vertex(Map, Target),
@@ -211,9 +239,9 @@ handle_cast({open, {Character, Direction}}, {C, Map}) ->
       gen_server:cast(Pid, {msg, "There's no door there."})
   end,
   gen_server:cast(Pid, unlock),
-  {noreply, {C, Map}};
+  {noreply, {C, Map, O}};
 
-handle_cast({close, {Character, Direction}}, {C, Map}) ->
+handle_cast({close, {Character, Direction}}, {C, Map, O}) ->
   Location = dict:fetch(location, Character),
   Target = nav:neighbor(Location, Direction),
   Pid = dict:fetch(id, Character),
@@ -227,21 +255,22 @@ handle_cast({close, {Character, Direction}}, {C, Map}) ->
       gen_server:cast(Pid, {msg, "There's no door there."})
   end,
   gen_server:cast(Pid, unlock),
-  {noreply, {C, Map}};
+  {noreply, {C, Map, O}};
 
-handle_cast({die, Character}, {{{C, Z},B,S}, Map}) ->
+handle_cast({die, Character}, {{{C, Z},B,S}, Map, {T, ZL, {CL, CLivingLength}}}) ->
   case dict:fetch(zombified, Character) of
     true ->
-      NS = {{{C, lists:delete(dict:fetch(id,Character), Z)},B,S}, Map};
+      NS = {{{C, lists:delete(dict:fetch(id,Character), Z)},B,S}, Map,
+        {T,length(Z), {CL, CLivingLength}}};
     false ->
-      %NS = {lists:delete(dict:fetch(id,Character), C), Z, Map}
-      NS = {{{C, Z},B,S}, Map}
+      %NS = {lists:delete(dict:fetch(id,Character), C), Z, Map, O}
+      NS = {{{C, Z},B,S}, Map, {T, ZL, {CL, CLivingLength - 1}}}
   end,
   Location = dict:fetch(location, Character),
   update_map(Map, Location, character, nil),
   {noreply, NS};
 
-handle_cast({update_board, Character}, {{{Chars, Zombs},Board,S}, M}) ->
+handle_cast({update_board, Character}, {{{Chars, Zombs},Board,S}, M, O}) ->
   Board1 = lists:keydelete(dict:fetch(tag, Character),1, Board),
   NewBoard = [
     {dict:fetch(tag, Character),"- ",
@@ -254,13 +283,13 @@ handle_cast({update_board, Character}, {{{Chars, Zombs},Board,S}, M}) ->
         gen_server:cast(Pid, {update_board, FlatBoard})
     end,
     Chars),
-  {noreply, {{{Chars, Zombs}, NewBoard, S}, M}};
+  {noreply, {{{Chars, Zombs}, NewBoard, S}, M, O}};
 
 handle_cast({update_self, Character}, State) ->
   update_map(Character),
   {noreply, State};
 
-handle_cast({say, {Character, Msg}}, {{{Characters, _}, _, _}, _} = State) ->
+handle_cast({say, {Character, Msg}}, {{{Characters, _}, _, _}, _, _} = State) ->
   Name = dict:fetch(tag, Character),
   Output = lists:concat([Name, ": ", Msg]),
   lists:foreach(fun(Char) -> gen_server:cast(Char, {hear, Output}) end, Characters),
@@ -274,7 +303,11 @@ handle_cast(Msg, State) ->
 handle_info(_Info, State) ->
   {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, {Characters, Zombies}) ->
+  lists:foreach(fun(Character) -> gen_server:cast(Character, stop) end, Characters),
+  lists:foreach(fun(Zombie) -> gen_server:cast(Zombie, stop) end, Zombies),
+  gen_server:cast(zhandler, {close_scenario, self()}),
+  timer:sleep(1000),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->

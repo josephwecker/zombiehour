@@ -4,8 +4,7 @@
 -export([broadcast/1, start/1, stop/0]).
 
 start(Attrs) ->
-  gen_server:start_link({local, ?MODULE}, ?MODULE, Attrs, []),
-  create_scenario().
+  gen_server:start_link({local, ?MODULE}, ?MODULE, Attrs, []).
 
 stop() ->
 	gen_server:cast(?MODULE, stop).
@@ -18,11 +17,11 @@ broadcast(Msg, Table) ->
   Pids = [ Pid || [Pid] <- List ],
   lists:map( fun(Pid) -> Pid ! Msg end, Pids).
 
-create_scenario() ->
-  gen_server:cast(?MODULE, create_scenario).
+create_scenario(Name) ->
+  gen_server:cast(?MODULE, {create_scenario, Name}).
 
-create_character(Cookie, Name) ->
-  gen_server:cast(zhandler, {create_character, {Cookie, Name}}).
+create_character(Cookie, Name, Scenario) ->
+  gen_server:cast(zhandler, {create_character, {Cookie, Name, Scenario}}).
 % Start gen_server functions
 
 
@@ -38,9 +37,8 @@ init([Port]) ->
 
 % State is {ets_table_pid, list_of_scenario_pids).
 
-handle_call(get_table, _From, State) ->
-  {Table, _} = State,
-  {reply, Table, State};
+handle_call(get_state, _From, State) ->
+  {reply, State, State};
 
 handle_call(Request, _From, State) ->
   io:format("~p~n", [Request]),
@@ -50,14 +48,16 @@ handle_cast({broadcast, Msg}, {Table, _} = State) ->
   broadcast(Msg, Table),
   {noreply, State};
 
-handle_cast(create_scenario, {Table, List}) ->
+handle_cast({create_scenario, Name}, {Table, List}) ->
   {ok, NewScenario} = scenario:start(),
-  NewList = lists:append(List, [NewScenario]),
+  NewList = [{Name, NewScenario}|List],
   {noreply, {Table, NewList}};
 
-handle_cast({create_character, {Cookie, Name}}, State) ->
-  {_Table, [Scenario]} = State,
-  Character = gen_server:call(Scenario, {create_character, Name}),
+handle_cast({create_character, {Cookie, Name, Scenario}}, State) ->
+  {_Table, ScenarioList} = State,
+  {Scenario, Pid} = lists:keyfind(Scenario, 1, ScenarioList),
+  Character = gen_server:call(Pid, {create_character, Name}),
+  io:format("~p~n", [Character]),
   %ets:insert(Table, {Cookie, Character, inactive}),
   gen_server:cast(?MODULE, {update_table, {character_address, {Cookie, Character}}}),
   {noreply, State};
@@ -81,6 +81,16 @@ handle_cast({update_table, {Type, {Cookie, Address}}}, State) ->
       % unnecessary.
       ets:update_element(Table, Cookie, {3, Address})
   end,
+  {noreply, State};
+
+%{ConnectionTable, ScenarioList}
+handle_cast({close_scenario, Pid}, {T,ScenarioList}) ->
+  NewList = lists:keydelete(Pid, 2, ScenarioList),
+  {noreply, {T,NewList}};
+
+handle_cast({close_character, Pid}, {Table, _} = State) ->
+  [[Cookie]] = ets:match(Table, {'$1', Pid, '_'}),
+  gen_server:cast(?MODULE, {update_table, {character_address, {Cookie, inactive}}}),
   {noreply, State};
 
 handle_cast(stop, State) ->
@@ -127,7 +137,7 @@ handle_http(Req) ->
   end.
 
 handle('GET', [], Cookie, Req) ->
-  Table = gen_server:call(?MODULE, get_table),
+  {Table, List} = gen_server:call(?MODULE, get_state),
   InTable = ets:member(Table, Cookie),
   case InTable of
     true -> 
@@ -135,27 +145,32 @@ handle('GET', [], Cookie, Req) ->
       [{_, Character, _}] = Result,
       case Character of
         inactive ->
-          io:format("~p~n", ["This probably wont ever show..."]),
-          Req:file("menu.html");
+          menu(Req, List);
         Character ->
           Req:file("game.html"),
           gen_server:cast(Character, update_all)
       end;
     false -> 
       %io:format("~p~n", [ets:tab2list(Table)]),
-      Req:file("menu.html")
+      menu(Req, List)
   end;
 
-handle('POST', [], Cookie, Req) ->
+handle('POST', ["create_scenario"], _Cookie, Req) ->
   Name = proplists:get_value("name", Req:parse_post()),
-  create_character(Cookie, Name),
+  create_scenario(Name),
+  Req:respond(302, [{"Location", "/game/"}], "");
+
+handle('POST', ["join"], Cookie, Req) ->
+  Name = proplists:get_value("name", Req:parse_post()),
+  Scenario = proplists:get_value("scenario", Req:parse_post()),
+  create_character(Cookie, Name, Scenario),
   Req:respond(302, [{"Location", "/game/"}], "");
   %handle('GET', [], Cookie, Req);
 
 handle('POST', ["data"], Cookie, Req) ->
 	Req:respond(204, [], ""),
   Params = Req:parse_post(),
-  Table = gen_server:call(?MODULE, get_table),
+  {Table, _} = gen_server:call(?MODULE, get_state),
   Result = ets:lookup(Table, Cookie),
   [{_, Character, _}] = Result,
   lists:foreach(fun(Param) -> gen_server:cast(Character, {post, Param}) end, Params);
@@ -173,3 +188,50 @@ handle(_,_,_,Req) ->
 
 
 % End Misultin Handlers
+
+menu(Req, List) ->
+  Menu = case List of
+    [] ->
+            "<h2>Create a new Scenario</h2>
+            <p>There isn't currently a game running, but you can start one by
+            entering a scenario name:</p>
+            <form action=\"create_scenario\" method=\"post\">
+              Scenario name: <input type=\"text\" name=\"name\" />
+              </form>";
+    List ->
+  lists:append("<h2>The following games are available to join:<\h2>",
+      lists:map(
+        fun({Name, _}) ->
+            lists:concat(["<h3>",Name,":</h3>
+              <form action=\"join\" method=\"post\">
+                <input type=\"hidden\" name=\"scenario\" value=\"",Name,"\" />
+                Character's name: <input type=\"text\" name=\"name\" />
+                </form>"])
+        end,
+        List))
+  end,
+  Template = "<html>
+  <head>
+    <title>Zombie Hour</title>
+    <link rel='stylesheet' type='text/css' href='../stylesheets/main.css' />
+    <link rel='stylesheet' type='text/css' href='../stylesheets/fonts/stylesheet.css' />
+
+  </head>
+  <body>
+    <div class=\"title\">
+      <h1>The Zombie Hour</h1>
+      <div id=\"sys_nav\">This doesn't work yet: <a href=\"\">Login</a></div>
+    </div>
+    <div>
+      <div id=\"content\">
+        <p>Welcome</p>
+        <p>If you haven't played Zombie Hour before make sure to read the <a
+        href=\"controls.html\">Controls</a> page, before starting.</p>
+        <p>You're not currently in a game.</p>
+        ~s
+      </div>
+    </div>
+
+  </body>
+</html>",
+  Req:ok([{"Content-Type", "text/html"}], Template, [Menu]).

@@ -266,6 +266,9 @@ handle_cast(unlock, {Player, U, A}) ->
   NewPlayer = dict:store(locked, false, Player),
   {noreply, {NewPlayer, U, A}};
 
+handle_cast(stop, _State) ->
+  {stop, normal, scenario_closed};
+
 handle_cast(Msg, State) ->
   io:format("cast received: ~p, When state was: ~p~n",[Msg, State]),
   {noreply, State}.
@@ -274,6 +277,7 @@ handle_info(_Info, State) ->
   {noreply, State}.
 
 terminate(_Reason, _State) ->
+  gen_server:cast(zhandler, {close_character, self()}),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->

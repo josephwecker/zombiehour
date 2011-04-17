@@ -18,6 +18,7 @@ create(Attrs) ->
   gen_server:start_link(?MODULE, Attrs, []).
 
 init([Scenario, Position, Map]) ->
+  process_flag(trap_exit, true),
   Attrs = [{id, self()}, {location, Position}, {cooldown, 0}, {map, Map},
     {tag, "Zomber"}, {hp, 12}, {visible_tiles, []}, {sight, 7}, {locked, false},
     {zombified, true}],
@@ -58,11 +59,12 @@ handle_cast({take_damage, Amt}, {Zombie, Scenario}) ->
   NewZombie = dict:update_counter(hp, -Amt, Zombie),
   case dict:fetch(hp, NewZombie) >= 1 of
     true ->
-      gen_server:cast(Scenario, {update_self, NewZombie});
+      gen_server:cast(Scenario, {update_self, NewZombie}),
+      {noreply, {NewZombie, Scenario}};
     false ->
-      gen_server:cast(Scenario, {die, NewZombie})
-  end,
-  {noreply, {NewZombie, Scenario}};
+      gen_server:cast(Scenario, {die, NewZombie}),
+      {stop, normal, dead_zombie}
+  end;
 
 handle_cast({update_character, {Attr, Value}}, {Zombie, S}) ->
   case Attr of
@@ -94,6 +96,9 @@ handle_cast({hear, _Msg}, {Z, S}) ->
 handle_cast({heat_up, Amount}, {Zombie, S}) ->
   NewZombie = dict:update_counter(cooldown, Amount, Zombie),
   {noreply, {NewZombie, S}};
+
+handle_cast(stop, _State) ->
+  {stop, normal, scenario_closed};
 
 handle_cast(Msg, State) ->
   io:format("cast received: ~p, When state was: ~p~n",[Msg, State]),
