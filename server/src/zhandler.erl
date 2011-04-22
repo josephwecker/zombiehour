@@ -148,6 +148,7 @@ handle('GET', [], Cookie, Req) ->
           menu(Req, List);
         Character ->
           Req:file("game.html"),
+          timer:sleep(1000),
           gen_server:cast(Character, update_all)
       end;
     false -> 

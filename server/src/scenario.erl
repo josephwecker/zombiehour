@@ -16,7 +16,7 @@ init([]) ->
     fun(_Num) ->
         spawn_zombie(Map, ZSpawn)
     end,
-    lists:seq(1,30)),
+    lists:seq(1,20)),
   spawn(fun() -> tick:tick(Self, 100) end),
   Board = [],
   StartTime = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
@@ -108,15 +108,55 @@ handle_cast({wait, Pid}, State) ->
   gen_server:cast(Pid, unlock),
   {noreply, State};
 
+handle_cast({dress_wound, {Character, Direction}}, {C, Map, O}) ->
+  Pid = dict:fetch(id, Character),
+  Neighbor = nav:neighbor(dict:fetch(location, Character), Direction),
+  {Neighbor, NbrTile} = digraph:vertex(Map, Neighbor),
+  case dict:fetch(character, NbrTile) of
+    nil ->
+      gen_server:cast(Pid, {msg, "There's no one there."});
+    Target ->
+      TPid = dict:fetch(id,Target),
+      HealAmount = 6,
+      HP = dict:fetch(hp, Target),
+      MaxHP = dict:fetch(maxhp, Target),
+      case HP >= MaxHP of
+        true ->
+          gen_server:cast(Pid, {msg, "They don't have any wounds to dress."});
+        false ->
+          case HP + HealAmount >= MaxHP of
+            true ->
+              Amount = MaxHP - HP,
+              gen_server:cast(TPid, {heal_damage, Amount});
+            false ->
+              gen_server:cast(TPid, {heal_damage, HealAmount})
+          end,
+          gen_server:cast(Pid, {destroy_item, first_aid_kit})
+      end
+  end,
+  gen_server:cast(Pid, {heat_up, 26}),
+  gen_server:cast(Pid, unlock),
+  {noreply, {C, Map, O}};
+
 handle_cast({attack, {Attacker, Direction}}, {C, Map, O}) ->
+  Pid = dict:fetch(id, Attacker),
   Neighbor = nav:neighbor(dict:fetch(location, Attacker), Direction),
   {Neighbor, NbrTile} = digraph:vertex(Map, Neighbor),
-  Target = dict:fetch(character, NbrTile),
-  Pid = dict:fetch(id, Attacker),
-  case Target of
+  case dict:fetch(character, NbrTile) of
     nil ->
-      gen_server:cast(Pid, {msg, "You swing at the open air."})
-      ;
+      case dict:fetch(structure, NbrTile) of
+        nil ->
+          gen_server:cast(Pid, {msg, "You swing at the open air."});
+        _Structure ->
+          case random:uniform(2) of
+            1 ->
+              gen_server:cast(Pid, {msg, "You fail to damage it."});
+            2 ->
+              gen_server:cast(Pid, {msg, "You hit it."}),
+              NewTile = tile:damage_tile(NbrTile, 2),
+              digraph:add_vertex(Map, Neighbor, NewTile)
+          end
+      end;
     Target ->
       TPid = dict:fetch(id,Target),
       case random:uniform(2) of
@@ -162,7 +202,7 @@ handle_cast({shoot, {Attacker, Direction}}, {C, Map, O}) ->
                 1 ->
                   gen_server:cast(Pid, {msg, "Your shot misses."});
                 2 ->
-                  Damage = 2,
+                  Damage  = 2,
                   gen_server:cast(TPid, {take_damage, Damage}),
                   case dict:fetch(hp, Target) =< Damage of
                     true ->
@@ -197,7 +237,12 @@ handle_cast({walk, {Character, Direction}}, {C, Map, O}) ->
             false ->
               case dict:fetch(character, TileData) of
                 nil ->
-                  gen_server:cast(Pid, unlock);
+                  case dict:fetch(structure, TileData) of
+                    nil ->
+                      gen_server:cast(Pid, unlock);
+                    _ ->
+                      gen_server:cast(self(), {attack, {Character, Direction}})
+                  end;
                 Target ->
                   case dict:fetch(zombified, Target) == dict:fetch(zombified,
                       Character) of
@@ -207,18 +252,14 @@ handle_cast({walk, {Character, Direction}}, {C, Map, O}) ->
                         gen_server:cast(self(), {attack, {Character, Direction}})
                     end
               end;
-            true ->
+            Cost ->
               Location = dict:fetch(location, Character),
               NewLocation = DesiredLocation,
               update_map(Map, Location, character, nil),
               update_map(Map, NewLocation, character, Pid),
               gen_server:cast(Pid, {update_character, {location, NewLocation}}),
-              case dict:fetch(zombified, Character) of
-                true ->
-                  gen_server:cast(Pid, {heat_up, 20});
-                false ->
-                  gen_server:cast(Pid, {heat_up, 16})
-              end,
+              Speed = dict:fetch(speed, Character),
+              gen_server:cast(Pid, {heat_up, Speed + Cost}),
               gen_server:cast(Pid, unlock)
           end
       end
@@ -230,13 +271,13 @@ handle_cast({open, {Character, Direction}}, {C, Map, O}) ->
   Target = nav:neighbor(Location, Direction),
   {Target, TileData} = digraph:vertex(Map, Target),
   Pid = dict:fetch(id, Character),
-  case dict:fetch(type,TileData) of
-    door ->
-      update_map(Map, Target, value, opened),
-      gen_server:cast(Pid, {update_character, {location, Location}}),
-      gen_server:cast(Pid, {heat_up, 8});
-    _ ->
-      gen_server:cast(Pid, {msg, "There's no door there."})
+  case dict:fetch(structure,TileData) of
+    nil ->
+      gen_server:cast(Pid, {msg, "There's nothing to open there."});
+    _Structure ->
+      NewTile = tile:open(TileData),
+      digraph:add_vertex(Map, Target, NewTile),
+      gen_server:cast(Pid, {heat_up, 8})
   end,
   gen_server:cast(Pid, unlock),
   {noreply, {C, Map, O}};
@@ -246,13 +287,29 @@ handle_cast({close, {Character, Direction}}, {C, Map, O}) ->
   Target = nav:neighbor(Location, Direction),
   Pid = dict:fetch(id, Character),
   {Target, TileData} = digraph:vertex(Map, Target),
-  case dict:fetch(type,TileData) of
-    door ->
-      update_map(Map, Target, value, closed),
-      gen_server:cast(Pid, {update_character, {location, Location}}),
-      gen_server:cast(Pid, {heat_up, 8});
-    _ ->
-      gen_server:cast(Pid, {msg, "There's no door there."})
+  case dict:fetch(structure,TileData) of
+    nil ->
+      gen_server:cast(Pid, {msg, "There's nothing to close there."});
+    _Structure ->
+      NewTile = tile:close(TileData),
+      digraph:add_vertex(Map, Target, NewTile),
+      gen_server:cast(Pid, {heat_up, 8})
+  end,
+  gen_server:cast(Pid, unlock),
+  {noreply, {C, Map, O}};
+
+handle_cast({repair, {Character, Direction}}, {C, Map, O}) ->
+  Location = dict:fetch(location, Character),
+  Target = nav:neighbor(Location, Direction),
+  Pid = dict:fetch(id, Character),
+  {Target, TileData} = digraph:vertex(Map, Target),
+  case dict:fetch(structure,TileData) of
+    nil ->
+      gen_server:cast(Pid, {msg, "There's nothing to repair there."});
+    _Structure ->
+      NewTile = tile:repair_tile(TileData,2),
+      digraph:add_vertex(Map, Target, NewTile),
+      gen_server:cast(Pid, {heat_up, 16})
   end,
   gen_server:cast(Pid, unlock),
   {noreply, {C, Map, O}};
@@ -260,8 +317,9 @@ handle_cast({close, {Character, Direction}}, {C, Map, O}) ->
 handle_cast({die, Character}, {{{C, Z},B,S}, Map, {T, ZL, {CL, CLivingLength}}}) ->
   case dict:fetch(zombified, Character) of
     true ->
-      NS = {{{C, lists:delete(dict:fetch(id,Character), Z)},B,S}, Map,
-        {T,length(Z), {CL, CLivingLength}}};
+      NZ = lists:delete(dict:fetch(id,Character), Z),
+      NS = {{{C, NZ},B,S}, Map,
+        {T,length(NZ), {CL, CLivingLength}}};
     false ->
       %NS = {lists:delete(dict:fetch(id,Character), C), Z, Map, O}
       NS = {{{C, Z},B,S}, Map, {T, ZL, {CL, CLivingLength - 1}}}
@@ -311,4 +369,4 @@ terminate(_Reason, {Characters, Zombies}) ->
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
-  {ok, State}.
+  {ok, State}.  

@@ -40,7 +40,7 @@ learn_tiles(Map, Tiles) ->
   lists:keysort(1, lists:map(
     fun(Key) ->
         {Key, Tile} = digraph:vertex(Map, Key),
-        Sym = integer_to_list(list_to_integer(dict:fetch(symbol, Tile))+12),
+        Sym = integer_to_list(list_to_integer(dict:fetch(symbol, Tile))+16),
         {Key, Sym}
     end,
     Tiles)).
@@ -60,6 +60,9 @@ update_queue(Player, Request) ->
   case Request of
     nil ->
       Player;
+    clear ->
+      Player1 = dict:store(queuestring, "ready", Player),
+      dict:store(queue, [], Player1);
     Request ->
       Queue = dict:fetch(queue, Player),
       case Queue of
@@ -85,13 +88,14 @@ update_stat(Atom, {F, M, Stat}) ->
   {F,M, [Atom|Stat]}.
 
 init([Name, Scenario, Map, Location]) ->
-  Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {hp, 20},
+  Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {maxhp, 20}, {hp, 20},
     {map, Map}, {ammo, 120}, {kills,0}, {living, ""}, {board,""}, {queuestring,""},
-    {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8}, {zombified, false}],
+    {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8},
+    {inventory, [pistol, first_aid_kit]}, {zombified, false}, {speed, 08}],
   Player = dict:from_list(Attrs),
   gen_server:cast(self(), {update_character, {location, Location}}),
   gen_server:cast(Scenario, {update_board, Player}),
-  Update = {[],[],[tag,hp,ammo,board]},
+  Update = {[],[],[tag,maxhp,hp,ammo,board]},
   Addresses = {inactive, Scenario},
   {ok, {Player, Update, Addresses}}.
 
@@ -206,6 +210,20 @@ handle_cast({take_damage, Amt}, {Player, U, {A, Scenario}}) ->
   end,
   {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
 
+handle_cast({heal_damage, Amt}, {Player, U, {A, Scenario}}) ->
+  NewPlayer = dict:update_counter(hp, Amt, Player),
+  NewUpdate = update_stat(hp, U),
+  gen_server:cast(Scenario, {update_self, NewPlayer}),
+  {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
+
+handle_cast({destroy_item, Item}, {Player, U, {A, Scenario}}) ->
+  Inventory = dict:fetch(inventory, Player),
+  NewInventory = lists:delete(Item, Inventory),
+  NewPlayer = dict:store(inventory, NewInventory, Player),
+  NewUpdate = update_stat(inventory, U),
+  gen_server:cast(Scenario, {update_self, NewPlayer}),
+  {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
+
 handle_cast(get_kill, {Player, U, {A, Scenario}}) ->
   NewPlayer = dict:update_counter(kills, 1, Player),
   gen_server:cast(Scenario, {update_board, NewPlayer}),
@@ -237,9 +255,8 @@ handle_cast({update_board, Board}, {Player, U, A}) ->
   {noreply, {NewPlayer, NewUpdate, A}};
 
 handle_cast(update_all, {Player, {F, _Map, _Stats}, A}) ->
-  Stats = [tag, ammo, hp, board],
+  Stats = [tag, ammo, maxhp, hp, board],
   {noreply, {Player, {F, [], Stats}, A}};
-
 
 handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
   case Param of
@@ -249,11 +266,29 @@ handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
     "walk" ->
       Request = {walk, {player, Value}};
     "shoot" ->
-      Request = {shoot, {player, Value}};
+      case lists:member(pistol, dict:fetch(inventory, Player)) of
+        true ->
+          Request = {shoot, {player, Value}};
+        false ->
+          Request = nil,
+          gen_server:cast(self(), {msg, "You don't have a gun equipped."})
+      end;
+    "dress_wound" ->
+      case lists:member(first_aid_kit, dict:fetch(inventory, Player)) of
+        true ->
+          Request = {dress_wound, {player, Value}};
+        false ->
+          Request = nil,
+          gen_server:cast(self(), {msg, "You don't have anything to dress wounds with."})
+      end;
     "open" ->
       Request = {open, {player, Value}};
     "close" ->
       Request = {close, {player, Value}};
+    "repair" ->
+      Request = {repair, {player, Value}};
+    "cancel" ->
+      Request = clear;
     Param ->
       Request = nil,
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])

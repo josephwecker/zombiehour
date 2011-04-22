@@ -7,6 +7,7 @@ var timing = true;
 
 // hotkey assignments:
 $(document).bind("keydown", "return", function(e){ open_chat(); });
+$(document).bind("keydown", "c", function(e){ post("cancel","cancel"); });
 $(document).bind(
     "keydown", "w", function (evt) {
     pressKey("w");
@@ -24,6 +25,10 @@ $(document).bind(
     pressKey("d");
     });
 $(document).bind(
+    "keydown", "space", function (evt) {
+    pressKey("space");
+    });
+$(document).bind(
     "keydown", "j", function (evt) {
     command = "shoot";
     });
@@ -34,6 +39,14 @@ $(document).bind(
 $(document).bind(
     "keydown", "l", function (evt) {
     command = "open";
+    });
+$(document).bind(
+    "keydown", "i", function (evt) {
+    command = "repair";
+    });
+$(document).bind(
+    "keydown", "p", function (evt) {
+    command = "dress_wound";
     });
 
 function pickDirection() {
@@ -57,6 +70,8 @@ function pickDirection() {
     direction = "south";
   } else if( key1 == "a") {
     direction = "west";
+  } else if( key1 == "space") {
+    direction = "";
   }
   keyPresses = [];
   return direction;

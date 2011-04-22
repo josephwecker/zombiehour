@@ -21,7 +21,7 @@ init([Scenario, Position, Map]) ->
   process_flag(trap_exit, true),
   Attrs = [{id, self()}, {location, Position}, {cooldown, 0}, {map, Map},
     {tag, "Zomber"}, {hp, 12}, {visible_tiles, []}, {sight, 7}, {locked, false},
-    {zombified, true}],
+    {zombified, true}, {speed, 18}],
   Zombie = dict:from_list(Attrs),
   {ok, {Zombie, Scenario}}.
 

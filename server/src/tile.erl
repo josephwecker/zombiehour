@@ -1,5 +1,13 @@
 -module(tile).
--export([initialize_map/1, coords_to_key/2, dir_to_key/2, update_tile/1]).
+-export([initialize_map/1, coords_to_key/2, dir_to_key/2, open/1, close/1,
+    repair_tile/2, damage_tile/2, update_tile/1]).
+-record(structure, {
+    state  = closed,
+    maxhp  = 10,
+    hp     = 10,
+    maxrhp = 10,
+    rhp    = 0
+  }).
 
 initialize_map(Map) ->
   MapData = map_data2(),
@@ -34,17 +42,17 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
   Attrs = [{x, X}, {y, Y}, {character, nil}],
   case Value of
     0 ->
-      Attrs2 = [{type, map_boundary}];
+      Attrs2 = [{type, map_boundary}, {structure, nil}];
     2 ->
-      Attrs2 = [{type, wall}];
+      Attrs2 = [{type, wall}, {structure, nil}];
     3 ->
-      Attrs2 = [{type, door}, {value, broken}];
+      Attrs2 = [{type, door}, {structure, #structure{}}];
     5 ->
-      Attrs2 = [{type, obstacle}];
+      Attrs2 = [{type, obstacle}, {structure, nil}];
     6 ->
-      Attrs2 = [{type, window}, {value, closed}];
+      Attrs2 = [{type, window}, {structure, #structure{maxhp=1,hp=1,maxrhp=4}}];
     _ ->
-      Attrs2 = [{type, space}]
+      Attrs2 = [{type, space}, {structure, nil}]
   end,
   case Value of
     h ->
@@ -109,6 +117,49 @@ dir_to_key(Tile, Dir) ->
 %  end,
 %  {D1, D, D2}.
 
+open(Tile) ->
+  Structure = dict:fetch(structure, Tile),
+  NewStructure = Structure#structure{state=opened},
+  update_tile(dict:store(structure, NewStructure, Tile)).
+
+close(Tile) ->
+  Structure = dict:fetch(structure, Tile),
+  NewStructure = Structure#structure{state=closed},
+  update_tile(dict:store(structure, NewStructure, Tile)).
+
+repair_tile(Tile, Amount) ->
+  Structure = dict:fetch(structure, Tile),
+  #structure{maxrhp=MaxRHP,rhp=RHP} = Structure,
+  case RHP + Amount =< MaxRHP of
+    true ->
+      NewRHP = RHP + Amount;
+    false ->
+      NewRHP = MaxRHP
+  end,
+  NewStructure = Structure#structure{rhp= NewRHP},
+  update_tile(dict:store(structure, NewStructure, Tile)).
+
+
+damage_tile(Tile, Damage) ->
+  Structure = dict:fetch(structure, Tile),
+  #structure{hp=HP, rhp=RHP} = Structure,
+  case RHP >= 1 of
+    true ->
+      case Damage =< RHP of
+        true ->
+          Structure1 = Structure#structure{rhp= RHP - Damage},
+          LeftOverDamage = 0;
+        false ->
+          Structure1 = Structure#structure{rhp= 0},
+          LeftOverDamage = Damage - RHP
+      end;
+    false ->
+      Structure1 = Structure,
+      LeftOverDamage = Damage
+  end,
+  NewStructure = Structure1#structure{hp= HP - LeftOverDamage},
+  update_tile(dict:store(structure, NewStructure, Tile)).
+
 update_tile(Tile) ->
   case dict:fetch(character, Tile) of
     nil ->
@@ -119,57 +170,79 @@ update_tile(Tile) ->
           Symbol = "2";
         space ->
           Visible = true,
-          Movement = true,
+          Movement = 1,
           Symbol = "1";
         wall ->
           Visible = false,
           Movement = false,
           Symbol = "2";
         door ->
-          case dict:fetch(value, Tile) of
-            closed ->
+          #structure{state=State, hp=HP, rhp=RHP} = dict:fetch(structure, Tile),
+          case RHP >= 1 of
+            true ->
               Visible = false,
               Movement = false,
-              Symbol = "3";
-            opened ->
-              Visible = true,
-              Movement = true,
               Symbol = "4";
-            broken ->
-              Visible = true,
-              Movement = true,
-              Symbol = "5"
+            false ->
+              case HP >= 1 of
+                false ->
+                  Visible = true,
+                  Movement = 1,
+                  Symbol = "6";
+                true ->
+                case State of
+                  closed ->
+                    Visible = false,
+                    Movement = false,
+                    Symbol = "3";
+                  opened ->
+                    Visible = true,
+                    Movement = 1,
+                    Symbol = "5"
+                end
+            end
           end;
         window ->
-          case dict:fetch(value, Tile) of
-            closed ->
+          #structure{state=State, hp=HP, rhp= RHP} = dict:fetch(structure, Tile),
+          case RHP >= 1 of
+            true ->
               Visible = true,
               Movement = false,
-              Symbol = "6";
-            opened ->
-              Visible = true,
-              Movement = false,
-              Symbol = "7";
-            broken ->
-              Visible = true,
-              Movement = true,
-              Symbol = "8"
+              Symbol = "8";
+            false ->
+              case HP >= 1 of
+                false ->
+                  Visible = true,
+                  Movement = 20,
+                  Symbol = "10";
+                true ->
+                  case State of
+                    closed ->
+                      Visible = true,
+                      Movement = false,
+                      Symbol = "7";
+                    opened ->
+                      Visible = true,
+                      Movement = false,
+                      Symbol = "9"
+                  end
+              end
           end;
         obstacle ->
           Visible = true,
-          Movement = false,
-          Symbol = "9"
+          Movement = 12,
+          Symbol = "11"
       end;
     Character ->
       case dict:fetch(zombified, Character) of
         true ->
           Visible = true,
           Movement = false,
-          Symbol = "11";
+          Symbol = "12";
         false ->
           Visible = true,
           Movement = false,
-          Symbol = "12"
+          Symbol = "13"
       end
   end,
   Tile1 = dict:store(symbol, Symbol, Tile),
