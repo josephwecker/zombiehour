@@ -227,7 +227,7 @@ menu(Req, List) ->
       <div id=\"content\">
         <p>Welcome</p>
         <p>If you haven't played Zombie Hour before make sure to read the <a
-        href=\"controls.html\">Controls</a> page, before starting.</p>
+        href=\"/controls.html\">Controls</a> page, before starting.</p>
         <p>You're not currently in a game.</p>
         ~s
       </div>
