@@ -63,6 +63,8 @@ neighbor(Origin, Direction) ->
   end,
   Neighbor.
     
+get_quadrant(Origin, "", _Length) -> [Origin];
+
 get_quadrant(Origin, Direction, Length) ->
   %Directions = ["northwest", "north", "northeast", "east",
   %  "southeast", "south", "southwest", "west"],
@@ -110,7 +112,7 @@ get_quadrant(Origin, Direction, Length) ->
   Right = neighbor(Start, C),
   LatestTiles = [neighbor(Start, A), Left, Right],
   lists:append([Start|LatestTiles],
-    add_to_quadrant(A, B, C, LatestTiles, Left, Right, Length -2)).
+  add_to_quadrant(A, B, C, LatestTiles, Left, Right, Length -2)).
 
 add_to_quadrant(A, B, C, LatestTiles, Left, Right, 1) ->
   NewLeft = neighbor(Left, B),
