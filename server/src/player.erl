@@ -87,12 +87,31 @@ do_request(Scenario, Player, {Action, {player, Value}}) ->
 update_stat(Atom, {F, M, Stat}) ->
   {F,M, [Atom|Stat]}.
 
-init([Name, Scenario, Map, Location]) ->
-  Attrs = [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {maxhp, 20}, {hp, 20},
-    {map, Map}, {ammo, 120}, {kills,0}, {living, ""}, {board,""}, {queuestring,""},
+init([Name, Class, Scenario, Map, Location]) ->
+  io:format("~p~n",[Class]),
+  case Class of
+    soldier ->
+      ClassAttrs = lists:keysort(1, [{ammo, 60}, {ranged_damage, {2,2}},
+          {ranged_acc, 10}]);
+    engineer ->
+      ClassAttrs = lists:keysort(1, [{repair, 20}]);
+    medic ->
+      ClassAttrs = lists:keysort(1, [{dress_wounds, 20},{inventory, [pistol,
+              first_aid_kit, first_aid_kit, first_aid_kit]}]);
+    brawler ->
+      ClassAttrs = lists:keysort(1, [{melee_damage, {2,2}}, {melee_acc, 10},
+            {maxhp, 24}, {hp, 24}, {speed, 7}])
+  end,
+  Attrs = lists:keysort(1, [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {maxhp, 20}, {hp, 20},
+    {map, Map}, {ammo, 20}, {kills,0}, {living, ""}, {board,""}, {queuestring,""},
     {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8},
-    {inventory, [pistol, first_aid_kit]}, {zombified, false}, {speed, 08}],
-  Player = dict:from_list(Attrs),
+    {inventory, [pistol, first_aid_kit]}, {zombified, false}, {speed, 8},
+    %Other Attrs
+    {melee_acc, 0}, {ranged_acc, 0}, {avoidance, 50}, {melee_damage, {1,2}},
+    {ranged_damage, {1,2}},
+    %skills:
+    {dress_wounds, 10}, {repair, 10}]),
+  Player = dict:from_list(lists:keymerge(1, Attrs, ClassAttrs)),
   gen_server:cast(self(), {update_character, {location, Location}}),
   gen_server:cast(Scenario, {update_board, Player}),
   Update = {[],[],[tag,maxhp,hp,ammo,board]},
@@ -220,9 +239,10 @@ handle_cast({destroy_item, Item}, {Player, U, {A, Scenario}}) ->
   Inventory = dict:fetch(inventory, Player),
   NewInventory = lists:delete(Item, Inventory),
   NewPlayer = dict:store(inventory, NewInventory, Player),
-  NewUpdate = update_stat(inventory, U),
+  %NewUpdate = update_stat(inventory, U),
   gen_server:cast(Scenario, {update_self, NewPlayer}),
-  {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
+  %{noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
+  {noreply, {NewPlayer, U, {A, Scenario}}};
 
 handle_cast(get_kill, {Player, U, {A, Scenario}}) ->
   NewPlayer = dict:update_counter(kills, 1, Player),

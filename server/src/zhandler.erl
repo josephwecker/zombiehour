@@ -20,8 +20,8 @@ broadcast(Msg, Table) ->
 create_scenario(Name) ->
   gen_server:cast(?MODULE, {create_scenario, Name}).
 
-create_character(Cookie, Name, Scenario) ->
-  gen_server:cast(zhandler, {create_character, {Cookie, Name, Scenario}}).
+create_character(Cookie, {Name, Class}, Scenario) ->
+  gen_server:cast(zhandler, {create_character, {Cookie, {Name, Class}, Scenario}}).
 % Start gen_server functions
 
 
@@ -53,10 +53,10 @@ handle_cast({create_scenario, Name}, {Table, List}) ->
   NewList = [{Name, NewScenario}|List],
   {noreply, {Table, NewList}};
 
-handle_cast({create_character, {Cookie, Name, Scenario}}, State) ->
+handle_cast({create_character, {Cookie, {Name, Class}, Scenario}}, State) ->
   {_Table, ScenarioList} = State,
   {Scenario, Pid} = lists:keyfind(Scenario, 1, ScenarioList),
-  Character = gen_server:call(Pid, {create_character, Name}),
+  Character = gen_server:call(Pid, {create_character, {Name, Class}}),
   io:format("~p~n", [Character]),
   %ets:insert(Table, {Cookie, Character, inactive}),
   gen_server:cast(?MODULE, {update_table, {character_address, {Cookie, Character}}}),
@@ -162,9 +162,11 @@ handle('POST', ["create_scenario"], _Cookie, Req) ->
   Req:respond(302, [{"Location", "/game/"}], "");
 
 handle('POST', ["join"], Cookie, Req) ->
-  Name = proplists:get_value("name", Req:parse_post()),
-  Scenario = proplists:get_value("scenario", Req:parse_post()),
-  create_character(Cookie, Name, Scenario),
+  Params = Req:parse_post(),
+  Name = proplists:get_value("name", Params),
+  Class = list_to_atom(proplists:get_value("class", Params)),
+  Scenario = proplists:get_value("scenario", Params),
+  create_character(Cookie, {Name, Class}, Scenario),
   Req:respond(302, [{"Location", "/game/"}], "");
   %handle('GET', [], Cookie, Req);
 
@@ -198,6 +200,7 @@ menu(Req, List) ->
             entering a scenario name:</p>
             <form action=\"create_scenario\" method=\"post\">
               Scenario name: <input type=\"text\" name=\"name\" />
+              <input type=\"submit\" value=\"Create Scenario\" />
               </form>";
     List ->
   lists:append("<h2>The following games are available to join:<\h2>",
@@ -206,7 +209,12 @@ menu(Req, List) ->
             lists:concat(["<h3>",Name,":</h3>
               <form action=\"join\" method=\"post\">
                 <input type=\"hidden\" name=\"scenario\" value=\"",Name,"\" />
-                Character's name: <input type=\"text\" name=\"name\" />
+                <input type=\"radio\" name=\"class\" value=\"soldier\" checked=\"checked\"/> Soldier <br />
+                <input type=\"radio\" name=\"class\" value=\"engineer\" /> Engineer <br />
+                <input type=\"radio\" name=\"class\" value=\"medic\" /> Medic <br />
+                <input type=\"radio\" name=\"class\" value=\"brawler\" /> Brawler <br />
+                Character's name: <input type=\"text\" name=\"name\" value=\"Unnamed\" />
+                <input type=\"submit\" value=\"Join Scenario\" />
                 </form>"])
         end,
         List))

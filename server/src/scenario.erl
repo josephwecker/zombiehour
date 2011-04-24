@@ -33,9 +33,9 @@ spawn_zombie(Map, SpawnPoints) ->
   update_map(Map, Position, character, Pid),
   Pid.
 
-spawn_player(Map, SpawnPoints, [Name]) ->
+spawn_player(Map, SpawnPoints, [Name, Class]) ->
   Position = lists:nth(random:uniform(length(SpawnPoints)), SpawnPoints),
-  {ok, Pid} = player:create([Name, self(), Map, Position]),
+  {ok, Pid} = player:create([Name, Class, self(), Map, Position]),
   update_map(Map, Position, character, Pid),
   Pid.
 
@@ -86,9 +86,9 @@ check_objectives({{{Characters, Zombies}, _, _}, _, {T,ZL,{CLength,CLivingLength
       end
   end.
 
-handle_call({create_character, Name}, _From, {{{Characters, Z},B,{ZP,CP}}, Map,
+handle_call({create_character, {Name, Class}}, _From, {{{Characters, Z},B,{ZP,CP}}, Map,
     {T, ZL, {CLength, CLivingLength}}}) ->
-  Character = spawn_player(Map, CP, [Name]),
+  Character = spawn_player(Map, CP, [Name, Class]),
   NewCharacters = [Character|Characters],
   {reply, Character, {{{NewCharacters, Z},B,{ZP,CP}}, Map, {T, ZL, {CLength + 1,
           CLivingLength + 1}}}};
@@ -117,13 +117,13 @@ handle_cast({dress_wound, {Character, Direction}}, {C, Map, O}) ->
       gen_server:cast(Pid, {msg, "There's no one there."});
     Target ->
       TPid = dict:fetch(id,Target),
-      HealAmount = 6,
       HP = dict:fetch(hp, Target),
       MaxHP = dict:fetch(maxhp, Target),
       case HP >= MaxHP of
         true ->
           gen_server:cast(Pid, {msg, "They don't have any wounds to dress."});
         false ->
+          HealAmount = 6,
           case HP + HealAmount >= MaxHP of
             true ->
               Amount = MaxHP - HP,
@@ -148,32 +148,38 @@ handle_cast({attack, {Attacker, Direction}}, {C, Map, O}) ->
         nil ->
           gen_server:cast(Pid, {msg, "You swing at the open air."});
         _Structure ->
-          case random:uniform(2) of
-            1 ->
+          case random:uniform(100)+dict:fetch(ranged_acc, Attacker) >= 50 of
+            false ->
               gen_server:cast(Pid, {msg, "You fail to damage it."});
-            2 ->
+            true ->
+              {Base, Range} = dict:fetch(melee_damage, Attacker),
+              Damage = Base + random:uniform(Range),
               gen_server:cast(Pid, {msg, "You hit it."}),
-              NewTile = tile:damage_tile(NbrTile, 2),
+              NewTile = tile:damage_tile(NbrTile, Damage),
               digraph:add_vertex(Map, Neighbor, NewTile)
           end
       end;
     Target ->
       TPid = dict:fetch(id,Target),
-      case random:uniform(2) of
-        1 ->
+      case random:uniform(100)+dict:fetch(ranged_acc, Attacker) >=
+        dict:fetch(avoidance, Target) of
+        false ->
           gen_server:cast(Pid, {msg, "You miss."}),
           gen_server:cast(TPid, {msg, "The Zombie swings at you but misses."});
-        2 ->
-          Damage = 2,
+        true ->
+          {Base, Range} = dict:fetch(melee_damage, Attacker),
+          Damage = Base + random:uniform(Range),
           gen_server:cast(TPid, {take_damage, Damage}),
           case dict:fetch(hp, Target) =< Damage of
             true ->
               gen_server:cast(Pid, {msg, "You hit and kill your opponent."}),
               gen_server:cast(Pid, get_kill),
-              gen_server:cast(TPid, {msg, "You take <span class='dmg'>2 damage</span> and <span class='dmg'>die</span>."});
+              gen_server:cast(TPid, {msg, lists:concat(["You take <span class='dmg'>", 
+                      Damage, " damage</span> and <span class='dmg'>die</span>."])});
             false ->
               gen_server:cast(Pid, {msg, "You hit."}),
-              gen_server:cast(TPid, {msg, "You take <span class='dmg'>2 damage</span>."})
+              gen_server:cast(TPid, {msg, lists:concat(["You take <span class='dmg'>",
+                      Damage, " damage</span>."])})
           end
       end
   end,
@@ -198,11 +204,13 @@ handle_cast({shoot, {Attacker, Direction}}, {C, Map, O}) ->
               ;
             Target ->
               TPid = dict:fetch(id,Target),
-              case random:uniform(2) of
-                1 ->
+              case random:uniform(100)+dict:fetch(ranged_acc, Attacker) >=
+                dict:fetch(avoidance, Target) of
+                false ->
                   gen_server:cast(Pid, {msg, "Your shot misses."});
-                2 ->
-                  Damage  = 2,
+                true ->
+                  {Base, Range} = dict:fetch(ranged_damage, Attacker),
+                  Damage = Base + random:uniform(Range),
                   gen_server:cast(TPid, {take_damage, Damage}),
                   case dict:fetch(hp, Target) =< Damage of
                     true ->
