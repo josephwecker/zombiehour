@@ -167,38 +167,38 @@ update_tile(Tile) ->
         map_boundary ->
           Visible = false,
           Movement = false,
-          Symbol = "2";
+          Symbol = 2;
         space ->
           Visible = true,
           Movement = 1,
-          Symbol = "1";
+          Symbol = 1;
         wall ->
           Visible = false,
           Movement = false,
-          Symbol = "2";
+          Symbol = 2;
         door ->
           #structure{state=State, hp=HP, rhp=RHP} = dict:fetch(structure, Tile),
           case RHP >= 1 of
             true ->
               Visible = false,
               Movement = false,
-              Symbol = "4";
+              Symbol = 4;
             false ->
               case HP >= 1 of
                 false ->
                   Visible = true,
                   Movement = 1,
-                  Symbol = "6";
+                  Symbol = 6;
                 true ->
                 case State of
                   closed ->
                     Visible = false,
                     Movement = false,
-                    Symbol = "3";
+                    Symbol = 3;
                   opened ->
                     Visible = true,
                     Movement = 1,
-                    Symbol = "5"
+                    Symbol = 5
                 end
             end
           end;
@@ -208,41 +208,41 @@ update_tile(Tile) ->
             true ->
               Visible = true,
               Movement = false,
-              Symbol = "8";
+              Symbol = 8;
             false ->
               case HP >= 1 of
                 false ->
                   Visible = true,
                   Movement = 20,
-                  Symbol = "10";
+                  Symbol = 10;
                 true ->
                   case State of
                     closed ->
                       Visible = true,
                       Movement = false,
-                      Symbol = "7";
+                      Symbol = 7;
                     opened ->
                       Visible = true,
                       Movement = false,
-                      Symbol = "9"
+                      Symbol = 9
                   end
               end
           end;
         obstacle ->
           Visible = true,
           Movement = 12,
-          Symbol = "11"
+          Symbol = 11
       end;
     Character ->
       case dict:fetch(zombified, Character) of
         true ->
           Visible = true,
           Movement = false,
-          Symbol = "12";
+          Symbol = 12;
         false ->
           Visible = true,
           Movement = false,
-          Symbol = "13"
+          Symbol = 13
       end
   end,
   Tile1 = dict:store(symbol, Symbol, Tile),

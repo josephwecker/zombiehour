@@ -168,10 +168,10 @@ function get_data() {
 
 function update_data(data) {
   if( data != "nil" ) {
-    datas = data.split(";");
-    for( d in datas ) {
-      a = datas[d].split(",");
-      update_stat(a[0], a[1]);
+    //datas = data.split(";");
+    //for( d in datas ) {
+    for( d in data ) {
+      update_stat(d, data[d]);
     }
   }
 }
@@ -189,15 +189,11 @@ function update_flash( msg ) {
 
 function update_map(mapdata) {
   if( mapdata != "nil" ) {
-    var map = mapdata.split(",");
-     // alert(map);
-    var i = 0
-    for (r=25; r>=1; r--) {
-      for(c = 1; c <= 25; c++) {
-        position = map[i] * 16;
-        $('#r'+r+'c'+c).css('background-position',"-"+position+"px 0px");
-        i = i + 1;
-      }
+    for (tile in mapdata) {
+      c = tile % 25;
+      r = (tile - c) / 25;
+      position = mapdata[tile] * 16;
+      $('#r'+r+'c'+c).css('background-position',"-"+position+"px 0px");
     }
   }
 }
@@ -205,7 +201,7 @@ function update_map(mapdata) {
 $(document).ready( function() {
     $("#map").append('<table></table>');
     get_data();
-    for (r=1; r<=25; r++) {
+    for (r = 25; r >= 1; r--) {
       $("#map table").append('<tr id="r'+r+'"></tr>');
       for(c = 1; c <= 25; c++) {
         $("#r"+r).append('<td id="r'+r+'c'+c+'"></td>');

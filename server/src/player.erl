@@ -11,36 +11,55 @@ build_map(Player) ->
   VisibleTiles = dict:fetch(visible_tiles, Player),
   KnownTiles = dict:fetch(known_tiles, Player),
   {X,Y} = nav:position(dict:fetch(location, Player)),
+  XO = X - 12,
+  YO = Y - 12,
   lists:flatten(
-  lists:map(
-    fun(Row) ->
-        %traverse cols...
-        lists:flatten(
-        lists:map(
-          fun(Col) ->
-              Key = tile:coords_to_key( Col, Row ),
-              case lists:member(Key, VisibleTiles) of
-                false ->
-                  case lists:keyfind(Key, 1, KnownTiles) of
-                    false ->
-                      "0,";
-                    {Key, Mem} ->
-                      lists:concat([Mem,","])
-                  end;
-                true ->
-                  {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                  lists:concat([dict:fetch(symbol, Tile), ","])
-              end
-          end,
-          lists:seq(X-12,X+12)))
-    end,
-    lists:seq(Y-12,Y+12))).
+    lists:map(
+      fun(Row) ->
+          lists:map(
+            fun(Col) ->
+                Key = tile:coords_to_key( XO + Col, YO + Row ),
+                JSKey = Row * 25 + Col + 1,
+                case lists:member(Key, VisibleTiles) of
+                  false ->
+                    case lists:keyfind(Key, 1, KnownTiles) of
+                      false ->
+                        {JSKey, 0};
+                      {Key, Mem} ->
+                        {JSKey, Mem}
+                    end;
+                  true ->
+                    {Key, Tile} = digraph:vertex(ScenarioMap, Key),
+                    {JSKey, dict:fetch(symbol, Tile)}
+                end
+            end,
+            lists:seq(0,24))
+      end,
+      lists:seq(0,24))).
 
+clear_map() ->
+  [{Num, 0} || Num <- lists:seq(1,625)].
+
+compare_maps(Map, Map2) ->
+  TileList = [Tile || {Tile, Tile2} <- lists:zip(Map, Map2), Tile =/= Tile2],
+  create_json_object(TileList).
+
+create_json_object(PropList) ->
+  create_json_object(PropList, "{").
+
+create_json_object([{Key, Value}], Result) ->
+  Item = lists:concat(["\"", Key, "\":\"", Value, "\"}"]),
+  Result ++ Item;
+
+create_json_object([{Key, Value}|PropList], Result) ->
+  Item = lists:concat(["\"", Key, "\":\"", Value, "\","]),
+  create_json_object(PropList, Result ++ Item).
+  
 learn_tiles(Map, Tiles) ->
   lists:keysort(1, lists:map(
     fun(Key) ->
         {Key, Tile} = digraph:vertex(Map, Key),
-        Sym = integer_to_list(list_to_integer(dict:fetch(symbol, Tile))+16),
+        Sym = dict:fetch(symbol, Tile)+16,
         {Key, Sym}
     end,
     Tiles)).
@@ -88,7 +107,6 @@ update_stat(Atom, {F, M, Stat}) ->
   {F,M, [Atom|Stat]}.
 
 init([Name, Class, Scenario, Map, Location]) ->
-  io:format("~p~n",[Class]),
   case Class of
     soldier ->
       ClassAttrs = lists:keysort(1, [{ammo, 60}, {ranged_damage, {2,2}},
@@ -114,7 +132,7 @@ init([Name, Class, Scenario, Map, Location]) ->
   Player = dict:from_list(lists:keymerge(1, Attrs, ClassAttrs)),
   gen_server:cast(self(), {update_character, {location, Location}}),
   gen_server:cast(Scenario, {update_board, Player}),
-  Update = {[],[],[tag,maxhp,hp,ammo,board]},
+  Update = {[],clear_map(),[tag,maxhp,hp,ammo,board]},
   Addresses = {inactive, Scenario},
   {ok, {Player, Update, Addresses}}.
 
@@ -160,10 +178,10 @@ handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
       Map2 = build_map(NewPlayer),
       case Map2 == Map of
         true ->
-          MapData = "nil",
+          MapData = "\"nil\"",
           NewMap  = Map;
         false ->
-          MapData = Map2,
+          MapData = compare_maps(Map2, Map),
           NewMap  = Map2
       end,
       NewFeedback = [],
@@ -176,23 +194,21 @@ handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
       NewStats = [],
       case Stats of
         [] ->
-          StatData = "nil";
+          StatData = "\"nil\"";
         Stats ->
-          StatData = lists:map(
+          StatsPropList = lists:map(
             fun(Stat) ->
-                lists:concat([Stat,",",dict:fetch(Stat, NewPlayer),";"])
+                {Stat, dict:fetch(Stat, NewPlayer)}
             end,
-            Stats)
+            Stats),
+          StatData = create_json_object(StatsPropList)
       end,
-
-      %Data = lists:concat(["name,",dict:fetch(tag, NewPlayer)]),
       case MapData == "nil" andalso StatData == "nil" andalso FeedbackMsg == "nil" of
         true ->
           NewAddress = Address;
         false ->
           JSON =
-          %lists:concat(["{\"map\":\"",Map,"\",\"flash\":\"",Num,"\",\"data\":\"",Data,"\",\"msg\":\"",Msg,"\"}"]),
-          lists:concat(["{\"map\":\"",MapData,"\",\"data\":\"",StatData,"\",\"msg\":\"",FeedbackMsg,"\"}"]),
+          lists:concat(["{\"map\":",MapData,",\"data\":",StatData,",\"msg\":\"",FeedbackMsg,"\"}"]),
           NewAddress = inactive,
           Address ! JSON
       end,
@@ -276,7 +292,7 @@ handle_cast({update_board, Board}, {Player, U, A}) ->
 
 handle_cast(update_all, {Player, {F, _Map, _Stats}, A}) ->
   Stats = [tag, ammo, maxhp, hp, board],
-  {noreply, {Player, {F, [], Stats}, A}};
+  {noreply, {Player, {F, clear_map(), Stats}, A}};
 
 handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
   case Param of
