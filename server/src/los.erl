@@ -2,9 +2,9 @@
 -export([character_los/1]).
 
 character_los( Character ) ->
-  Map = dict:fetch(map, Character),
-  Origin = dict:fetch(location, Character),
-  Radius = dict:fetch(sight, Character),
+  Map = ets:lookup_element(Character, map, 2),
+  Origin = ets:lookup_element(Character, location, 2),
+  Radius = ets:lookup_element(Character, sight, 2),
   los( Map, Origin, Radius ).
 
 los( Map, Origin, Radius ) ->

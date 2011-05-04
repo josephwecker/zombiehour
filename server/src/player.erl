@@ -6,11 +6,12 @@
 create(Attrs) ->
   gen_server:start_link(?MODULE, Attrs, []).
 
-build_map(Player) ->
-  ScenarioMap = dict:fetch(map, Player),
-  VisibleTiles = dict:fetch(visible_tiles, Player),
-  KnownTiles = dict:fetch(known_tiles, Player),
-  {X,Y} = nav:position(dict:fetch(location, Player)),
+build_map(Character) ->
+  ScenarioMap = ets:lookup_element(Character, map, 2),
+  VisibleTiles = ets:lookup_element(Character, visible_tiles, 2),
+  KnownTiles = ets:lookup_element(Character, known_tiles, 2),
+  Location = ets:lookup_element(Character, location, 2),
+  {X,Y} = nav:position(Location),
   XO = X - 12,
   YO = Y - 12,
   lists:flatten(
@@ -30,6 +31,13 @@ build_map(Player) ->
                     end;
                   true ->
                     {Key, Tile} = digraph:vertex(ScenarioMap, Key),
+                    case dict:fetch(refresh_map, Tile) of
+                      true ->
+                        gen_server:cast(self(), {update_character, {location,
+                              Location}});
+                      false ->
+                        ok
+                    end,
                     {JSKey, dict:fetch(symbol, Tile)}
                 end
             end,
@@ -55,35 +63,24 @@ create_json_object([{Key, Value}|PropList], Result) ->
   Item = lists:concat(["\"", Key, "\":\"", Value, "\","]),
   create_json_object(PropList, Result ++ Item).
   
-learn_tiles(Map, Tiles) ->
-  lists:keysort(1, lists:map(
-    fun(Key) ->
-        {Key, Tile} = digraph:vertex(Map, Key),
-        Sym = dict:fetch(symbol, Tile)+16,
-        {Key, Sym}
-    end,
-    Tiles)).
-
 queue_to_string([]) ->
   "ready";
 
 queue_to_string(Queue) ->
   lists:flatmap(
-    fun({Action, {player, Value}}) ->
+    fun({Action, Value}) ->
         lists:concat([atom_to_list(Action), " ", Value, "<br />"])
     end,
     Queue).
 
-
-update_queue(Player, Request) ->
+update_queue(Character, Request) ->
   case Request of
     nil ->
-      Player;
+      ok;
     clear ->
-      Player1 = dict:store(queuestring, "ready", Player),
-      dict:store(queue, [], Player1);
+      ets:insert(Character, [{queuestring, "ready"}, {queue, []}]);
     Request ->
-      Queue = dict:fetch(queue, Player),
+      Queue = ets:lookup_element(Character, queue, 2),
       case Queue of
         [] ->
           NewQueue = [Request];
@@ -91,14 +88,13 @@ update_queue(Player, Request) ->
           NewQueue = lists:append(Queue, [Request])
       end,
       QS = queue_to_string(NewQueue),
-      Player1 = dict:store(queuestring, QS, Player),
-      dict:store(queue, NewQueue, Player1)
+      ets:insert(Character, [{queuestring, QS}, {queue, NewQueue}])
   end.
 
-do_request(Scenario, Player, {Action, {player, Value}}) ->
-  case dict:fetch(hp, Player) > 0 of
+do_request(CharPid, Character, {Action, Value}) ->
+  case ets:lookup_element(Character, hp, 2) > 0 of
     true ->
-      gen_server:cast(Scenario, {Action, {Player, Value}});
+      gen_server:cast(CharPid, {Action, Value});
     false ->
       ok
   end.
@@ -106,7 +102,7 @@ do_request(Scenario, Player, {Action, {player, Value}}) ->
 update_stat(Atom, {F, M, Stat}) ->
   {F,M, [Atom|Stat]}.
 
-init([Name, Class, Scenario, Map, Location]) ->
+init([Character, Name, Class]) ->
   case Class of
     soldier ->
       ClassAttrs = lists:keysort(1, [{ammo, 60}, {ranged_damage, {2,2}},
@@ -120,8 +116,8 @@ init([Name, Class, Scenario, Map, Location]) ->
       ClassAttrs = lists:keysort(1, [{melee_damage, {2,2}}, {melee_acc, 10},
             {maxhp, 24}, {hp, 24}, {speed, 7}])
   end,
-  Attrs = lists:keysort(1, [{id, self()}, {tag, Name}, {queue, []}, {cooldown, 0}, {maxhp, 20}, {hp, 20},
-    {map, Map}, {ammo, 20}, {kills,0}, {living, ""}, {board,""}, {queuestring,""},
+  Attrs = lists:keysort(1, [{tag, Name}, {queue, []}, {cooldown, 0}, {maxhp, 20}, {hp, 20},
+    {ammo, 20}, {kills,0}, {living, ""}, {board,""}, {queuestring,""},
     {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8},
     {inventory, [pistol, first_aid_kit]}, {zombified, false}, {speed, 8},
     %Other Attrs
@@ -129,45 +125,43 @@ init([Name, Class, Scenario, Map, Location]) ->
     {ranged_damage, {1,2}},
     %skills:
     {dress_wounds, 10}, {repair, 10}]),
-  Player = dict:from_list(lists:keymerge(1, Attrs, ClassAttrs)),
-  gen_server:cast(self(), {update_character, {location, Location}}),
-  gen_server:cast(Scenario, {update_board, Player}),
+  ets:insert(Character, lists:keymerge(1, Attrs, ClassAttrs)),
+  Location = ets:lookup_element(Character, location, 2),
+  character:update_character(location, Location, Character),
   Update = {[],clear_map(),[tag,maxhp,hp,ammo,board]},
-  Addresses = {inactive, Scenario},
-  {ok, {Player, Update, Addresses}}.
-
-handle_call(character, _From, {Player, U, A}) ->
-  {reply, Player, {Player, U, A}};
+  Addresses = {inactive, unknown},
+  {ok, {Character, Update, Addresses}}.
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
-handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
-  Num = dict:fetch(cooldown, Player),
+handle_cast(tick, {Character, Update, {Address, unknown}}) ->
+  CharPid = character:lookup(Character, id),
+  gen_server:cast(CharPid, update_board),
+  {noreply, {Character, Update, {Address, CharPid}}};
+
+handle_cast(tick, {Character, Update, {Address, CharPid}}) ->
+  Num = ets:lookup_element(Character, cooldown, 2),
   case Num of
     0 ->
-      case dict:fetch(locked, Player) of
-        true ->
-          Update1 = Update,
-          NewPlayer = Player;
-        false ->
-          case dict:fetch(queue, Player) of
+      %case ets:lookup_element(Character, locked, 2) of
+      %  true ->
+      %    Update1 = Update;
+      %  false ->
+          case ets:lookup_element(Character, queue, 2) of
             [] ->
-              Update1 = Update,
-              NewPlayer = Player;
+              Update1 = Update;
             [Request|NewQueue] ->
-              do_request(Scenario, Player, Request),
-              Player1 = dict:store(locked, true, Player),
+              do_request(CharPid, Character, Request),
               QS = queue_to_string(NewQueue),
-              Player2 = dict:store(queuestring, QS, Player1),
               Update1 = update_stat(queuestring, Update),
-              NewPlayer = dict:store(queue, NewQueue, Player2)
-          end
+              ets:insert(Character, [{locked, true}, {queuestring, QS}, {queue, NewQueue}])
+      %    end
       end;
     Num ->
       Update1 = update_stat(cooldown, Update),
-      NewPlayer = dict:update_counter(cooldown, -1, Player)
+      ets:update_counter(Character, cooldown, -1)
   end,
   case Address of
     inactive ->
@@ -175,7 +169,7 @@ handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
       NewUpdate = Update1;
     Address ->
       {Feedback, Map, Stats} = Update1,
-      Map2 = build_map(NewPlayer),
+      Map2 = build_map(Character),
       case Map2 == Map of
         true ->
           MapData = "\"nil\"",
@@ -198,7 +192,7 @@ handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
         Stats ->
           StatsPropList = lists:map(
             fun(Stat) ->
-                {Stat, dict:fetch(Stat, NewPlayer)}
+                {Stat, ets:lookup_element(Character, Stat, 2)}
             end,
             Stats),
           StatData = create_json_object(StatsPropList)
@@ -214,134 +208,73 @@ handle_cast(tick, {Player, Update, {Address, Scenario}}) ->
       end,
       NewUpdate = {NewFeedback, NewMap, NewStats}
   end,
-  {noreply, {NewPlayer, NewUpdate, {NewAddress, Scenario}}};
-
-handle_cast({update_character, {Attr, Value}}, {Player, U, A}) ->
-  case Attr of
-    location ->
-      P1 = dict:store(Attr, Value, Player),
-      VisibleTiles = los:character_los(P1),
-      P2 = dict:store(visible_tiles, VisibleTiles, P1),
-      OldKnownTiles = dict:fetch(known_tiles, Player),
-      Map = dict:fetch(map, Player),
-      KnownTiles = lists:ukeymerge(1, learn_tiles(Map, VisibleTiles), OldKnownTiles),
-      NewPlayer = dict:store(known_tiles, KnownTiles, P2);
-    _ ->
-      NewPlayer = dict:store(Attr, Value, Player)
-  end,
-  {noreply, {NewPlayer, U, A}};
-
-handle_cast({take_damage, Amt}, {Player, U, {A, Scenario}}) ->
-  Player1 = dict:update_counter(hp, -Amt, Player),
-  NewUpdate = update_stat(hp, U),
-  case dict:fetch(hp, Player1) >= 1 of
-    true ->
-      NewPlayer = Player1,
-      gen_server:cast(Scenario, {update_self, NewPlayer});
-    false ->
-      NewPlayer = dict:store(living, "deceased", Player1),
-      gen_server:cast(Scenario, {die, NewPlayer}),
-      gen_server:cast(Scenario, {update_board, NewPlayer})
-  end,
-  {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
-
-handle_cast({heal_damage, Amt}, {Player, U, {A, Scenario}}) ->
-  NewPlayer = dict:update_counter(hp, Amt, Player),
-  NewUpdate = update_stat(hp, U),
-  gen_server:cast(Scenario, {update_self, NewPlayer}),
-  {noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
-
-handle_cast({destroy_item, Item}, {Player, U, {A, Scenario}}) ->
-  Inventory = dict:fetch(inventory, Player),
-  NewInventory = lists:delete(Item, Inventory),
-  NewPlayer = dict:store(inventory, NewInventory, Player),
-  %NewUpdate = update_stat(inventory, U),
-  gen_server:cast(Scenario, {update_self, NewPlayer}),
-  %{noreply, {NewPlayer, NewUpdate, {A, Scenario}}};
-  {noreply, {NewPlayer, U, {A, Scenario}}};
-
-handle_cast(get_kill, {Player, U, {A, Scenario}}) ->
-  NewPlayer = dict:update_counter(kills, 1, Player),
-  gen_server:cast(Scenario, {update_board, NewPlayer}),
-  {noreply, {NewPlayer, U, {A, Scenario}}};
-
-handle_cast({msg, Msg}, {P, {Feedback, M, S}, A}) ->
-  NewFeedback = lists:concat([Feedback,"<span class='combat_msg'>", Msg, "</span><br/>"]),
-  {noreply, {P, {NewFeedback, M, S}, A}};
-
-handle_cast({hear, Msg}, {P, {Feedback, M, S}, A}) ->
-  NewFeedback = lists:concat([Feedback, Msg, "<br/>"]),
-  {noreply, {P, {NewFeedback, M, S}, A}};
+  {noreply, {Character, NewUpdate, {NewAddress, CharPid}}};
 
 handle_cast({return_address, Address}, {P, U, {_, S}}) ->
   {noreply, {P, U, {Address, S}}};
 
-handle_cast({heat_up, Amount}, {Player, U, A}) ->
-  NewPlayer = dict:update_counter(cooldown, Amount, Player),
-  {noreply, {NewPlayer, U, A}};
-
-handle_cast({lose_ammo, Amount}, {Player, U, A}) ->
-  NewPlayer = dict:update_counter(ammo, -Amount, Player),
-  NewUpdate = update_stat(ammo, U),
-  {noreply, {NewPlayer, NewUpdate, A}};
-
-handle_cast({update_board, Board}, {Player, U, A}) ->
-  NewPlayer = dict:store(board, Board, Player),
+handle_cast({update_board, Board}, {Character, U, A}) ->
+  ets:insert(Character, {board, Board}),
   NewUpdate = update_stat(board, U),
-  {noreply, {NewPlayer, NewUpdate, A}};
+  {noreply, {Character, NewUpdate, A}};
 
-handle_cast(update_all, {Player, {F, _Map, _Stats}, A}) ->
-  Stats = [tag, ammo, maxhp, hp, board],
-  {noreply, {Player, {F, clear_map(), Stats}, A}};
+handle_cast({update_stat, Stat}, {C, U, A}) ->
+  NewUpdate = update_stat(Stat, U),
+  {noreply, {C, NewUpdate, A}};
 
-handle_cast({post, {Param, Value}}, {Player, U, {_, Scenario} = A}) ->
+handle_cast(update_all, {Character, {F, _Map, _Attrs}, A}) ->
+  Attrs = [tag, ammo, maxhp, hp, board],
+  {noreply, {Character, {F, clear_map(), Attrs}, A}};
+
+handle_cast({post, {Param, Value}}, {Character, U, A}) ->
   case Param of
     "say" ->
       Request = nil,
-      gen_server:cast(Scenario, {say, {Player, Value}});
+      {_, CharPid} = A,
+      gen_server:cast(CharPid, {say, Value});
     "walk" ->
-      Request = {walk, {player, Value}};
+      Request = {walk, Value};
     "shoot" ->
-      case lists:member(pistol, dict:fetch(inventory, Player)) of
+      case lists:member(pistol, ets:lookup_element(Character, inventory, 2)) of
         true ->
-          Request = {shoot, {player, Value}};
+          Request = {shoot, Value};
         false ->
           Request = nil,
           gen_server:cast(self(), {msg, "You don't have a gun equipped."})
       end;
     "dress_wound" ->
-      case lists:member(first_aid_kit, dict:fetch(inventory, Player)) of
+      case lists:member(first_aid_kit, character:lookup(Character, inventory)) of
         true ->
-          Request = {dress_wound, {player, Value}};
+          Request = {dress_wound, Value};
         false ->
           Request = nil,
           gen_server:cast(self(), {msg, "You don't have anything to dress wounds with."})
       end;
     "open" ->
-      Request = {open, {player, Value}};
+      Request = {open, Value};
     "close" ->
-      Request = {close, {player, Value}};
+      Request = {close, Value};
     "repair" ->
-      Request = {repair, {player, Value}};
+      Request = {repair,Value};
     "cancel" ->
       Request = clear;
     Param ->
       Request = nil,
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
   end,
-  NewPlayer = update_queue(Player, Request),
+  update_queue(Character, Request),
   NewUpdate = update_stat(queuestring, U),
-  {noreply, {NewPlayer, NewUpdate, A}};
+  {noreply, {Character, NewUpdate, A}};
 
-handle_cast(unlock, {Player, U, A}) ->
-  NewPlayer = dict:store(locked, false, Player),
-  {noreply, {NewPlayer, U, A}};
+handle_cast({msg, Msg}, {C, {Feedback, M, S}, A}) ->
+  NewFeedback = lists:concat([Feedback,"<span class='combat_msg'>", Msg, "</span><br/>"]),
+  {noreply, {C, {NewFeedback, M, S}, A}};
 
 handle_cast(stop, _State) ->
   {stop, normal, scenario_closed};
 
 handle_cast(Msg, State) ->
-  io:format("cast received: ~p, When state was: ~p~n",[Msg, State]),
+  io:format("Player received unknown cast: ~p, when state was: ~p~n",[Msg, State]),
   {noreply, State}.
 
 handle_info(_Info, State) ->

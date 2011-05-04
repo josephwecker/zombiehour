@@ -3,100 +3,63 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([create/1]).
 
-figure_out_what_to_do(Zombie) ->
-  case character:find_target(Zombie) of
+figure_out_what_to_do(Character) ->
+  case character:find_target(Character) of
     false ->
       Direction = lists:nth(random:uniform(8), ["northwest", "north",
           "northeast", "east", "southeast", "south", "southwest", "west"]);
     Target ->
-      MyPosition = dict:fetch(location, Zombie),
+      MyPosition = ets:lookup_element(Character, location, 2),
       Direction = nav:direction(MyPosition, Target)
   end,
-  {walk, {Zombie, Direction}}.
+  {walk, Direction}.
 
 create(Attrs) ->
   gen_server:start_link(?MODULE, Attrs, []).
 
-init([Scenario, Position, Map]) ->
+init([Character]) ->
   process_flag(trap_exit, true),
-  Attrs = [{id, self()}, {location, Position}, {cooldown, 0}, {map, Map},
+  Attrs = [{cooldown, 0},
     {tag, "Zomber"}, {hp, 12}, {visible_tiles, []}, {sight, 7}, {locked, false},
     {melee_acc, 0}, {ranged_acc, 0}, {avoidance, 50}, {melee_damage, {1,2}},
     {zombified, true}, {speed, 18}],
-  Zombie = dict:from_list(Attrs),
-  {ok, {Zombie, Scenario}}.
-
-handle_call(character, _From, {Zombie, S}) ->
-  {reply, Zombie, {Zombie, S}};
+  ets:insert(Character, Attrs),
+  Location = ets:lookup_element(Character, location, 2),
+  character:update_character(location, Location, Character),
+  {ok, {Character, unknown}}.
 
 handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
-handle_cast(tick, {Zombie, Scenario}) ->
-  case dict:fetch(hp, Zombie) > 0 of
+handle_cast(tick, {Character, unknown}) ->
+  CharPid = character:lookup(Character, id),
+  {noreply, {Character, CharPid}};
+
+handle_cast(tick, {Character, CharPid}) ->
+  case ets:lookup_element(Character, hp, 2) > 0 of
     true ->
-      Num = dict:fetch(cooldown, Zombie),
+      Num = ets:lookup_element(Character, cooldown, 2),
       case Num of
         0 ->
-          case dict:fetch(locked, Zombie) of
+          case ets:lookup_element(Character, locked, 2) of
             true ->
-              NewZombie = Zombie;
+              ok;
             false ->
-              NewZombie = dict:store(locked, true, Zombie),
-              ToDo = figure_out_what_to_do(Zombie),
+              ets:insert(Character, {locked, true}),
+              ToDo = figure_out_what_to_do(Character),
   %io:format("~p~n",[ToDo]),
-              gen_server:cast(Scenario, ToDo)
+              gen_server:cast(CharPid, ToDo)
           end;
         Num ->
-          NewZombie = dict:update_counter(cooldown, -1, Zombie)
+          ets:update_counter(Character, cooldown, -1)
       end;
     false ->
-      NewZombie = Zombie
+      ok
   end,
-  {noreply, {NewZombie, Scenario}};
+  {noreply, {Character, CharPid}};
 
-handle_cast({take_damage, Amt}, {Zombie, Scenario}) ->
-  NewZombie = dict:update_counter(hp, -Amt, Zombie),
-  case dict:fetch(hp, NewZombie) >= 1 of
-    true ->
-      gen_server:cast(Scenario, {update_self, NewZombie}),
-      {noreply, {NewZombie, Scenario}};
-    false ->
-      gen_server:cast(Scenario, {die, NewZombie}),
-      {stop, normal, dead_zombie}
-  end;
-
-handle_cast({update_character, {Attr, Value}}, {Zombie, S}) ->
-  case Attr of
-    location ->
-      Z1 = dict:store(Attr, Value, Zombie),
-      VisibleTiles = los:character_los(Z1),
-      NewZombie = dict:store(visible_tiles, VisibleTiles, Z1);
-      %io:format("Zomber is now at ~p~n",[Value]);
-    _ ->
-      NewZombie = dict:store(Attr, Value, Zombie)
-  end,
-  {noreply, {NewZombie, S}};
-
-handle_cast(unlock, {Zombie, S}) ->
-  NewZombie = dict:store(locked, false, Zombie),
-  {noreply, {NewZombie, S}};
-
-handle_cast({msg, _Msg}, {Z, S}) ->
-  {noreply, {Z, S}};
-
-handle_cast(get_kill, State) ->
-  {noreply, State};
-
-handle_cast({hear, _Msg}, {Z, S}) ->
-  % do something like the sound source is intriguing to the zombman, so if
-  % he's not doing anything important, than he'll investigate.
-  {noreply, {Z, S}};
-
-handle_cast({heat_up, Amount}, {Zombie, S}) ->
-  NewZombie = dict:update_counter(cooldown, Amount, Zombie),
-  {noreply, {NewZombie, S}};
+handle_cast({msg, Msg}, State) -> {noreply, State};
 
 handle_cast(stop, _State) ->
   {stop, normal, scenario_closed};

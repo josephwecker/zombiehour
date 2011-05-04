@@ -57,7 +57,6 @@ handle_cast({create_character, {Cookie, {Name, Class}, Scenario}}, State) ->
   {_Table, ScenarioList} = State,
   {Scenario, Pid} = lists:keyfind(Scenario, 1, ScenarioList),
   Character = gen_server:call(Pid, {create_character, {Name, Class}}),
-  io:format("~p~n", [Character]),
   %ets:insert(Table, {Cookie, Character, inactive}),
   gen_server:cast(?MODULE, {update_table, {character_address, {Cookie, Character}}}),
   {noreply, State};
