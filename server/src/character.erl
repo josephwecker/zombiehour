@@ -216,14 +216,14 @@ handle_cast({dress_wound, Direction}, State) ->
   {Neighbor, NbrTile} = digraph:vertex(Map, Neighbor),
   case dict:fetch(character, NbrTile) of
     nil ->
-      gen_server:cast(Pid, {msg, "There's no one there."});
+      gen_server:cast(Pid, {msg, {notify, "There's no one there."}});
     Target ->
       TPid = lookup(Target, id),
       HP = lookup(Target, hp),
       MaxHP = lookup(Target, maxhp),
       case HP >= MaxHP of
         true ->
-          gen_server:cast(Pid, {msg, "They don't have any wounds to dress."});
+          gen_server:cast(Pid, {msg, {notify, "They don't have any wounds to dress."}});
         false ->
           HealAmount = 6,
           case HP + HealAmount >= MaxHP of
@@ -249,15 +249,15 @@ handle_cast({attack, Direction}, State) ->
     nil ->
       case dict:fetch(structure, NbrTile) of
         nil ->
-          gen_server:cast(Pid, {msg, "You swing at the open air."});
+          gen_server:cast(Pid, {msg, {combat, "You swing at the open air."}});
         _Structure ->
           case random:uniform(100)+lookup(Character, ranged_acc) >= 50 of
             false ->
-              gen_server:cast(Pid, {msg, "You fail to damage it."});
+              gen_server:cast(Pid, {msg, {combat, "You fail to damage it."}});
             true ->
               {Base, Range} = lookup(Character, melee_damage),
               Damage = Base + random:uniform(Range),
-              gen_server:cast(Pid, {msg, "You hit it."}),
+              gen_server:cast(Pid, {msg, {combat, "You hit it."}}),
               NewTile = tile:damage_tile(NbrTile, Damage),
               gen_server:cast(Scenario, {update_map, {Map, Neighbor, NewTile}})
           end
@@ -267,22 +267,22 @@ handle_cast({attack, Direction}, State) ->
       case random:uniform(100)+lookup(Character, ranged_acc) >=
         lookup(Target, avoidance) of
         false ->
-          gen_server:cast(Pid, {msg, "You miss."}),
-          gen_server:cast(TPid, {msg, "The Zombie swings at you but misses."});
+          gen_server:cast(Pid, {msg, {combat, "You miss."}}),
+          gen_server:cast(TPid, {msg, {combat, "The Zombie swings at you but misses."}});
         true ->
           {Base, Range} = lookup(Character, melee_damage),
           Damage = Base + random:uniform(Range),
           gen_server:cast(TPid, {take_damage, Damage}),
           case lookup(Target, hp) =< Damage of
             true ->
-              gen_server:cast(Pid, {msg, "You hit and kill your opponent."}),
+              gen_server:cast(Pid, {msg, {combat, "You hit and kill your opponent."}}),
               get_kill(Character, Scenario),
-              gen_server:cast(TPid, {msg, lists:concat(["You take <span class='dmg'>", 
-                      Damage, " damage</span> and <span class='dmg'>die</span>."])});
+              gen_server:cast(TPid, {msg, {combat, lists:concat(["You take <span class='dmg'>", 
+                      Damage, " damage</span> and <span class='dmg'>die</span>."])}});
             false ->
-              gen_server:cast(Pid, {msg, "You hit."}),
-              gen_server:cast(TPid, {msg, lists:concat(["You take <span class='dmg'>",
-                      Damage, " damage</span>."])})
+              gen_server:cast(Pid, {msg, {combat, "You hit."}}),
+              gen_server:cast(TPid, {msg, {combat,  lists:concat(["You take <span class='dmg'>",
+                        Damage, " damage</span>."])}})
           end
       end
   end,
@@ -297,31 +297,31 @@ handle_cast({shoot, Direction}, State) ->
     true ->
       case Tile of
         false ->
-          gen_server:cast(Pid, {msg, "There are no targets in that direction."});
+          gen_server:cast(Pid, {msg, {notify, "There are no targets in that direction."}});
         Tile ->
           Map = lookup(Character, map),
           {Tile, TargetTile} = digraph:vertex(Map, Tile),
           Target = dict:fetch(character, TargetTile),
           case Target of
             nil ->
-              gen_server:cast(Pid, {msg, "Your target evades."})
+              gen_server:cast(Pid, {msg, {combat, "Your target evades."}})
               ;
             Target ->
               TPid = lookup(Target, id),
               case random:uniform(100)+lookup(Character, ranged_acc)
                 >= lookup(Target, avoidance) of
                 false ->
-                  gen_server:cast(Pid, {msg, "Your shot misses."});
+                  gen_server:cast(Pid, {msg, {combat, "Your shot misses."}});
                 true ->
                   {Base, Range} = lookup(Character, ranged_damage),
                   Damage = Base + random:uniform(Range),
                   gen_server:cast(TPid, {take_damage, Damage}),
                   case lookup(Target, hp) =< Damage of
                     true ->
-                      gen_server:cast(Pid, {msg, "You shoot and kill your opponent."}),
+                      gen_server:cast(Pid, {msg, {combat, "You shoot and kill your opponent."}}),
                       get_kill(Character, Scenario);
                     false ->
-                      gen_server:cast(Pid, {msg, "You shot the Zomber."})
+                      gen_server:cast(Pid, {msg, {combat, "You shot the Zomber."}})
                   end
               end
           end,
@@ -329,7 +329,7 @@ handle_cast({shoot, Direction}, State) ->
           heat_up(Character, 16)
       end;
     false ->
-      gen_server:cast(Pid, {msg, "You don't have any ammunition left."})
+      gen_server:cast(Pid, {msg, {notify, "You don't have any ammunition left."}})
   end,
   unlock(Character),
   {noreply, State};
@@ -387,7 +387,7 @@ handle_cast({open, Direction}, State) ->
   Pid = lookup(Character, id),
   case dict:fetch(structure,TileData) of
     nil ->
-      gen_server:cast(Pid, {msg, "There's nothing to open there."});
+      gen_server:cast(Pid, {msg, {notify, "There's nothing to open there."}});
     _Structure ->
       NewTile = tile:open(TileData),
       gen_server:cast(Scenario, {update_map, {Map, Target, NewTile}}),
@@ -405,7 +405,7 @@ handle_cast({close, Direction}, State) ->
   {Target, TileData} = digraph:vertex(Map, Target),
   case dict:fetch(structure,TileData) of
     nil ->
-      gen_server:cast(Pid, {msg, "There's nothing to close there."});
+      gen_server:cast(Pid, {msg, {notify, "There's nothing to close there."}});
     _Structure ->
       NewTile = tile:close(TileData),
       gen_server:cast(Scenario, {update_map, {Map, Target, NewTile}}),
@@ -423,7 +423,7 @@ handle_cast({repair, Direction}, State) ->
   {Target, TileData} = digraph:vertex(Map, Target),
   case dict:fetch(structure,TileData) of
     nil ->
-      gen_server:cast(Pid, {msg, "There's nothing to repair there."});
+      gen_server:cast(Pid, {msg, {notify, "There's nothing to repair there."}});
     _Structure ->
       NewTile = tile:repair_tile(TileData,2),
       gen_server:cast(Scenario, {update_map, {Map, Target, NewTile}}),
@@ -433,10 +433,27 @@ handle_cast({repair, Direction}, State) ->
   {noreply, State};
 
 handle_cast({say, Msg}, State) ->
-  {Character, _, _} = State,
+  {Character, {Scenario, _}, _} = State,
   Name = lookup(Character, tag),
-  Output = lists:concat([Name, ": ", Msg]),
-  %lists:foreach(fun(Char) -> gen_server:cast(Char, {hear, Output}) end, Characters),
+  Output = {speech, lists:concat([Name, ": ", Msg])},
+  gen_server:cast(Scenario, {make_noise, {Character, 10, talking, Output}}),
+  {noreply, State};
+
+handle_cast({observe_scene, {Location, Scene, Msg}}, State) ->
+  {Character, _, _} = State,
+  Pid = lookup(Character, id),
+  gen_server:cast(Pid, {msg, Msg}),
+  {noreply, State};
+
+handle_cast({observe_noise, {Location, Volume, Noise, Msg}}, State) ->
+  {Character, _, _} = State,
+  Pid = lookup(Character, id),
+  gen_server:cast(Pid, {msg, Msg}),
+  {noreply, State};
+
+handle_cast({msg, Msg}, State) ->
+  {_, {_, Player}, _} = State,
+  gen_server:cast(Player, {msg, Msg}),
   {noreply, State};
 
 handle_cast(Msg, State) ->

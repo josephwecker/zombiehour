@@ -31,13 +31,13 @@ build_map(Character) ->
                     end;
                   true ->
                     {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                    case dict:fetch(refresh_map, Tile) of
-                      true ->
-                        gen_server:cast(self(), {update_character, {location,
-                              Location}});
-                      false ->
-                        ok
-                    end,
+                    %case dict:fetch(refresh_map, Tile) of
+                    %  true ->
+                    %    gen_server:cast(self(), {update_character, {location,
+                    %          Location}});
+                    %  false ->
+                    %    ok
+                    %end,
                     {JSKey, dict:fetch(symbol, Tile)}
                 end
             end,
@@ -101,6 +101,18 @@ do_request(CharPid, Character, {Action, Value}) ->
 
 update_stat(Atom, {F, M, Stat}) ->
   {F,M, [Atom|Stat]}.
+
+get_msg(Feedback, {Type, Msg}) ->
+  case Type of
+    combat ->
+      lists:concat([Feedback,"<span class='combat_msg'>", Msg, "</span><br/>"]);
+    notify ->
+      lists:concat([Feedback,"<span class='note_msg'>", Msg, "</span><br/>"]);
+    speech ->
+      lists:concat([Feedback, Msg,"<br />"]);
+    nil ->
+      Feedback
+  end.
 
 init([Character, Name, Class]) ->
   case Class of
@@ -226,48 +238,57 @@ handle_cast(update_all, {Character, {F, _Map, _Attrs}, A}) ->
   Attrs = [tag, ammo, maxhp, hp, board],
   {noreply, {Character, {F, clear_map(), Attrs}, A}};
 
-handle_cast({post, {Param, Value}}, {Character, U, A}) ->
+handle_cast({post, {Param, Value}}, {Character, {Feedback, M, S}, A}) ->
   case Param of
     "say" ->
+      NewFeedback = Feedback,
       Request = nil,
       {_, CharPid} = A,
       gen_server:cast(CharPid, {say, Value});
     "walk" ->
+      NewFeedback = Feedback,
       Request = {walk, Value};
     "shoot" ->
       case lists:member(pistol, ets:lookup_element(Character, inventory, 2)) of
         true ->
+          NewFeedback = Feedback,
           Request = {shoot, Value};
         false ->
           Request = nil,
-          gen_server:cast(self(), {msg, "You don't have a gun equipped."})
+          NewFeedback = get_msg(Feedback, {notify, "You don't have a gun equipped."})
       end;
     "dress_wound" ->
       case lists:member(first_aid_kit, character:lookup(Character, inventory)) of
         true ->
+          NewFeedback = Feedback,
           Request = {dress_wound, Value};
         false ->
           Request = nil,
-          gen_server:cast(self(), {msg, "You don't have anything to dress wounds with."})
+          NewFeedback = get_msg(Feedback, {notify, "You don't have anything to dress wounds with."})
       end;
     "open" ->
+      NewFeedback = Feedback,
       Request = {open, Value};
     "close" ->
+      NewFeedback = Feedback,
       Request = {close, Value};
     "repair" ->
+      NewFeedback = Feedback,
       Request = {repair,Value};
     "cancel" ->
+      NewFeedback = Feedback,
       Request = clear;
     Param ->
+      NewFeedback = Feedback,
       Request = nil,
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
   end,
   update_queue(Character, Request),
-  NewUpdate = update_stat(queuestring, U),
+  NewUpdate = update_stat(queuestring, {NewFeedback, M, S}),
   {noreply, {Character, NewUpdate, A}};
 
 handle_cast({msg, Msg}, {C, {Feedback, M, S}, A}) ->
-  NewFeedback = lists:concat([Feedback,"<span class='combat_msg'>", Msg, "</span><br/>"]),
+  NewFeedback = get_msg(Feedback, Msg),
   {noreply, {C, {NewFeedback, M, S}, A}};
 
 handle_cast(stop, _State) ->

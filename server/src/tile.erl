@@ -39,7 +39,7 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
   Y = RowCount,
   Key = coords_to_key( X, Y ),
   Value = lists:nth(X, lists:nth(Y, MapData)),
-  Attrs = [{x, X}, {y, Y}, {character, nil}, {refresh_map, false}],
+  Attrs = [{x, X}, {y, Y}, {character, nil}],
   case Value of
     0 ->
       Attrs2 = [{type, map_boundary}, {structure, nil}];

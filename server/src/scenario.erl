@@ -59,6 +59,22 @@ update_map(Map, Vertex, Attr, Value, Scenario) ->
   NewTile2 = tile:update_tile(NewTile),
   gen_server:cast(Scenario, {update_map, {Map, Vertex, NewTile2}}).
 
+make_scene(Characters, Location, Scene, Msg) ->
+  lists:foreach(
+    fun({Character}) ->
+        Pid = character:lookup(Character, id),
+        gen_server:cast(Pid, {observe_scene, {Location, Scene, Msg}})
+    end,
+    Characters).
+
+make_noise(Characters, Location, Volume, Noise, Msg) ->
+  lists:foreach(
+    fun({Character}) ->
+        Pid = character:lookup(Character, id),
+        gen_server:cast(Pid, {observe_noise, {Location, Volume, Noise, Msg}})
+    end,
+    Characters).
+
 check_objectives({{Players, Zombies, _}, _, _, {{T,ZL,{CLength,CLivingLength}}, _}} = State) ->
   case ZL < 1 of
     true ->
@@ -108,6 +124,32 @@ handle_cast({wait, Pid}, State) ->
 
 handle_cast({update_map, {G, V, D}}, State) ->
   update_map(G, V, D),
+  {noreply, State};
+
+handle_cast({make_noise, {Character, Volume, Noise, Msg}}, State) ->
+  {{P, Z, _}, _, _, _} = State,
+  Players = ets:tab2list(P),
+  Zombies = ets:tab2list(Z),
+  case character:lookup(Character, zombified) of
+    true ->
+      Characters = Players ++ lists:delete({Character}, Zombies);
+    false ->
+      Characters = lists:delete({Character}, Players) ++ Zombies
+  end,
+  Location = character:lookup(Character, location),
+  make_noise(Characters, Location, Volume, Noise, Msg),
+  {noreply, State};
+
+handle_cast({make_scene, {Character, Scene, Msg}}, State) ->
+  {{Players, Zombies, _}, _, _, _} = State,
+  case character:lookup(Character, zombified) of
+    true ->
+      Characters = Players ++ lists:delete(Character, Zombies);
+    false ->
+      Characters = lists:delete(Character, Players) ++ Zombies
+  end,
+  Location = character:lookup(Character, location),
+  make_scene(Characters, Location, Scene, Msg),
   {noreply, State};
   
 handle_cast({update_board, Character}, State) ->

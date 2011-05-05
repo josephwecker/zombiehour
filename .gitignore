@@ -1,4 +1,8 @@
-ebin
-.DS_Store
-.*.swp
-.deps
+.bundle
+db/*.sqlite3
+log/*.log
+tmp/**/*
+*.swp
+server/ebin/
+server/.deps
+server/nginx.jwecker-blue.conf
