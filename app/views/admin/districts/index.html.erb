@@ -1,0 +1,25 @@
+<h2>Listing districts</h2>
+
+<table>
+  <tr>
+    <th>City</th>
+    <th>Name</th>
+    <th></th>
+    <th></th>
+    <th></th>
+  </tr>
+
+<% @districts.each do |district| %>
+  <tr>
+    <td><%= district.city %></td>
+    <td><%= district.name %></td>
+    <td><%= link_to 'Show', admin_city_district_path(@city, district) %></td>
+    <td><%= link_to 'Edit', edit_admin_city_district_path(@city, district) %></td>
+    <td><%= link_to 'Destroy', admin_city_district_path(@city, district), :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New District', new_admin_city_district_path %>

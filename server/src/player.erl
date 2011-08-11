@@ -7,25 +7,25 @@ create(Attrs) ->
   gen_server:start_link(?MODULE, Attrs, []).
 
 build_map(Character) ->
-  ScenarioMap = ets:lookup_element(Character, map, 2),
-  VisibleTiles = ets:lookup_element(Character, visible_tiles, 2),
-  KnownTiles = ets:lookup_element(Character, known_tiles, 2),
-  Location = ets:lookup_element(Character, location, 2),
+  ScenarioMap = character:lookup(Character, map),
+  VisibleTiles = character:lookup(Character, visible_tiles),
+  KnownTiles = character:lookup(Character, known_tiles),
+  Location = character:lookup(Character, location),
   {X,Y} = nav:position(Location),
-  XO = X - 12,
-  YO = Y - 12,
+  XO = X - 13,
+  YO = Y - 13,
   lists:flatten(
     lists:map(
       fun(Row) ->
           lists:map(
             fun(Col) ->
                 Key = tile:coords_to_key( XO + Col, YO + Row ),
-                JSKey = Row * 25 + Col + 1,
+                JSKey = lists:concat([Col, "n", Row]),
                 case lists:member(Key, VisibleTiles) of
                   false ->
                     case lists:keyfind(Key, 1, KnownTiles) of
                       false ->
-                        {JSKey, 0};
+                        {JSKey, "unknown_shaded"};
                       {Key, Mem} ->
                         {JSKey, Mem}
                     end;
@@ -38,19 +38,85 @@ build_map(Character) ->
                     %  false ->
                     %    ok
                     %end,
-                    {JSKey, dict:fetch(symbol, Tile)}
+                    {JSKey, lists:concat([dict:fetch(symbol, Tile),"_clear"])}
                 end
             end,
-            lists:seq(0,24))
+            lists:seq(0,26))
       end,
-      lists:seq(0,24))).
+      lists:seq(0,26))).
 
 clear_map() ->
-  [{Num, 0} || Num <- lists:seq(1,625)].
+  [{lists:concat([X,"n",Y]), "unknown_shaded"} || Y <- lists:seq(0,26), X <-
+    lists:seq(0,26) ].
 
-compare_maps(Map, Map2) ->
+compare_maps(Map, Map2, Character) ->
   TileList = [Tile || {Tile, Tile2} <- lists:zip(Map, Map2), Tile =/= Tile2],
-  create_json_object(TileList).
+  List = create_json_object(TileList),
+  Location = character:lookup(Character, location),
+  case character:lookup(Character, moved) of
+    false ->
+      lists:concat(["{\"moved\":\"false\",\"origin\":\"",Location,"\",\"changes\":",List,"}"]);
+    {Dir, Speed} ->
+      character:update_character(moved, false, Character),
+      io:format("~p~n",[Speed]),
+      lists:concat(["{\"moved\":\"",Dir,"\",\"origin\":\"",Location,"\",\"speed\":\"",Speed,"\",\"changes\":",List,"}"])
+  end.
+
+find_sprites(Character) ->
+  ScenarioMap = character:lookup(Character, map),
+  VisibleTiles = character:lookup(Character, visible_tiles),
+  KnownTiles = character:lookup(Character, known_tiles),
+  Location = character:lookup(Character, location),
+  {X,Y} = nav:position(Location),
+  XO = X - 13,
+  YO = Y - 13,
+  lists:flatten(
+    lists:map(
+      fun(Row) ->
+          lists:map(
+            fun(Col) ->
+                Key = tile:coords_to_key( XO + Col, YO + Row ),
+                JSKey = lists:concat([Col, "n", Row]),
+                case lists:member(Key, VisibleTiles) of
+                  false ->
+                    case lists:keyfind(Key, 1, KnownTiles) of
+                      false ->
+                        {JSKey, "unknown_shaded"};
+                      {Key, Mem} ->
+                        {JSKey, Mem}
+                    end;
+                  true ->
+                    {Key, Tile} = digraph:vertex(ScenarioMap, Key),
+                    %case dict:fetch(refresh_map, Tile) of
+                    %  true ->
+                    %    gen_server:cast(self(), {update_character, {location,
+                    %          Location}});
+                    %  false ->
+                    %    ok
+                    %end,
+                    {JSKey, lists:concat([dict:fetch(symbol, Tile),"_clear"])}
+                end
+            end,
+            lists:seq(0,26))
+      end,
+      lists:seq(0,26))).
+
+clear_map() ->
+  [{lists:concat([X,"n",Y]), "unknown_shaded"} || Y <- lists:seq(0,26), X <-
+    lists:seq(0,26) ].
+
+compare_sprites(Sprite, Sprite2, Character) ->
+  TileList = [Tile || {Tile, Tile2} <- lists:zip(Map, Map2), Tile =/= Tile2],
+  List = create_json_object(TileList),
+  Location = character:lookup(Character, location),
+  case character:lookup(Character, moved) of
+    false ->
+      lists:concat(["{\"moved\":\"false\",\"origin\":\"",Location,"\",\"changes\":",List,"}"]);
+    {Dir, Speed} ->
+      character:update_character(moved, false, Character),
+      io:format("~p~n",[Speed]),
+      lists:concat(["{\"moved\":\"",Dir,"\",\"origin\":\"",Location,"\",\"speed\":\"",Speed,"\",\"changes\":",List,"}"])
+  end.
 
 create_json_object(PropList) ->
   create_json_object(PropList, "{").
@@ -65,6 +131,8 @@ create_json_object([{Key, Value}|PropList], Result) ->
   
 queue_to_string([]) ->
   "ready";
+
+%Jaymay - Grey or Blue
 
 queue_to_string(Queue) ->
   lists:flatmap(
@@ -99,8 +167,8 @@ do_request(CharPid, Character, {Action, Value}) ->
       ok
   end.
 
-update_stat(Atom, {F, M, Stat}) ->
-  {F,M, [Atom|Stat]}.
+update_stat(Atom, {F, A, M, S, Stat}) ->
+  {F, A, M, S, [Atom|Stat]}.
 
 get_msg(Feedback, {Type, Msg}) ->
   case Type of
@@ -130,7 +198,7 @@ init([Character, Name, Class]) ->
   end,
   Attrs = lists:keysort(1, [{tag, Name}, {queue, []}, {cooldown, 0}, {maxhp, 20}, {hp, 20},
     {ammo, 20}, {kills,0}, {living, ""}, {board,""}, {queuestring,""},
-    {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 8},
+    {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 10},
     {inventory, [pistol, first_aid_kit]}, {zombified, false}, {speed, 8},
     %Other Attrs
     {melee_acc, 0}, {ranged_acc, 0}, {avoidance, 50}, {melee_damage, {1,2}},
@@ -140,7 +208,7 @@ init([Character, Name, Class]) ->
   ets:insert(Character, lists:keymerge(1, Attrs, ClassAttrs)),
   Location = ets:lookup_element(Character, location, 2),
   character:update_character(location, Location, Character),
-  Update = {[],clear_map(),[tag,maxhp,hp,ammo,board]},
+  Update = {[],[],clear_map(),[],[tag,maxhp,hp,ammo,board]},
   Addresses = {inactive, unknown},
   {ok, {Character, Update, Addresses}}.
 
@@ -172,7 +240,7 @@ handle_cast(tick, {Character, Update, {Address, CharPid}}) ->
       %    end
       end;
     Num ->
-      Update1 = update_stat(cooldown, Update),
+      Update1 = Update,
       ets:update_counter(Character, cooldown, -1)
   end,
   case Address of
@@ -180,14 +248,25 @@ handle_cast(tick, {Character, Update, {Address, CharPid}}) ->
       NewAddress = Address,
       NewUpdate = Update1;
     Address ->
-      {Feedback, Map, Stats} = Update1,
+      {Feedback, Alerts, Map, Sprites, Stats} = Update1,
+
+      Sprites2 = find_sprites(Character),
+      case Sprites2 == Sprites of
+        true ->
+          SpriteData = "\"nil\"",
+          NewSprites  = Sprites;
+        false ->
+          SpriteData = compare_sprites(Sprites2, Sprites, Character),
+          NewSprites  = Sprites2
+      end,
+
       Map2 = build_map(Character),
       case Map2 == Map of
         true ->
           MapData = "\"nil\"",
           NewMap  = Map;
         false ->
-          MapData = compare_maps(Map2, Map),
+          MapData = compare_maps(Map2, Map, Character),
           NewMap  = Map2
       end,
       NewFeedback = [],
@@ -196,6 +275,13 @@ handle_cast(tick, {Character, Update, {Address, CharPid}}) ->
           FeedbackMsg = "nil";
         FeedbackMsg ->
           ok
+      end,
+      NewAlerts = [],
+      case Alerts of
+        [] ->
+          AlertData = "\"nil\"";
+        Alerts ->
+          AlertData = create_json_object(Alerts)
       end,
       NewStats = [],
       case Stats of
@@ -209,16 +295,16 @@ handle_cast(tick, {Character, Update, {Address, CharPid}}) ->
             Stats),
           StatData = create_json_object(StatsPropList)
       end,
-      case MapData == "nil" andalso StatData == "nil" andalso FeedbackMsg == "nil" of
+      case MapData == "\"nil\"" andalso StatData == "\"nil\"" andalso SpriteData == "\"nil\"" andalso AlertData == "\"nil\"" andalso FeedbackMsg == "nil" of
         true ->
           NewAddress = Address;
         false ->
           JSON =
-          lists:concat(["{\"map\":",MapData,",\"data\":",StatData,",\"msg\":\"",FeedbackMsg,"\"}"]),
+          lists:concat(["{\"map\":",MapData,",\"data\":",StatData,",\"sprites\":",SpriteData,",\"anims\":",AlertData,",\"msg\":\"",FeedbackMsg,"\"}"]),
           NewAddress = inactive,
           Address ! JSON
       end,
-      NewUpdate = {NewFeedback, NewMap, NewStats}
+      NewUpdate = {NewFeedback, NewAlerts, NewMap, NewSprites, NewStats}
   end,
   {noreply, {Character, NewUpdate, {NewAddress, CharPid}}};
 
@@ -234,11 +320,14 @@ handle_cast({update_stat, Stat}, {C, U, A}) ->
   NewUpdate = update_stat(Stat, U),
   {noreply, {C, NewUpdate, A}};
 
-handle_cast(update_all, {Character, {F, _Map, _Attrs}, A}) ->
+handle_cast(update_all, {Character, {F, Al, _Map, _Sprites, _Attrs}, A}) ->
   Attrs = [tag, ammo, maxhp, hp, board],
-  {noreply, {Character, {F, clear_map(), Attrs}, A}};
+  {noreply, {Character, {F, Al, clear_map(), [], Attrs}, A}};
 
-handle_cast({post, {Param, Value}}, {Character, {Feedback, M, S}, A}) ->
+handle_cast({add_alert, {Alert, Speed}}, {C, {F, Alerts, M, Sprites, S}, A}) ->
+  {noreply, {C, {F, [{Alert, Speed}|Alerts], M, Sprites, S}, A}};
+
+handle_cast({post, {Param, Value}}, {Character, {Feedback, Al, M, Sprites, S}, A}) ->
   case Param of
     "say" ->
       NewFeedback = Feedback,
@@ -284,12 +373,12 @@ handle_cast({post, {Param, Value}}, {Character, {Feedback, M, S}, A}) ->
       io:format("{ ~p, ~p }: failed to match anything.~n",[Param, Value])
   end,
   update_queue(Character, Request),
-  NewUpdate = update_stat(queuestring, {NewFeedback, M, S}),
+  NewUpdate = update_stat(queuestring, {NewFeedback, Al, M, Sprites, S}),
   {noreply, {Character, NewUpdate, A}};
 
-handle_cast({msg, Msg}, {C, {Feedback, M, S}, A}) ->
+handle_cast({msg, Msg}, {C, {Feedback, Al, M, Sprites, S}, A}) ->
   NewFeedback = get_msg(Feedback, Msg),
-  {noreply, {C, {NewFeedback, M, S}, A}};
+  {noreply, {C, {NewFeedback, Al, M, Sprites, S}, A}};
 
 handle_cast(stop, _State) ->
   {stop, normal, scenario_closed};

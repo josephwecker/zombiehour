@@ -1,0 +1,15 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  damage_base: 1
+  damage_range: 1
+  damage_type: MyString
+  strength: 1
+  control: 1
+
+two:
+  damage_base: 1
+  damage_range: 1
+  damage_type: MyString
+  strength: 1
+  control: 1

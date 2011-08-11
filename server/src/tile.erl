@@ -10,7 +10,7 @@
   }).
 
 initialize_map(Map) ->
-  MapData = map_data2(),
+  MapData = test_map_data(),
   SpawnPoints = lists:flatmap(
     fun(RowCount) ->
       lists:map(
@@ -39,7 +39,7 @@ initialize_tile(Map, MapData, RowCount, ColCount) ->
   Y = RowCount,
   Key = coords_to_key( X, Y ),
   Value = lists:nth(X, lists:nth(Y, MapData)),
-  Attrs = [{x, X}, {y, Y}, {character, nil}],
+  Attrs = [{x, X}, {y, Y}],
   case Value of
     0 ->
       Attrs2 = [{type, map_boundary}, {structure, nil}];
@@ -161,91 +161,77 @@ damage_tile(Tile, Damage) ->
   update_tile(dict:store(structure, NewStructure, Tile)).
 
 update_tile(Tile) ->
-  case dict:fetch(character, Tile) of
-    nil ->
-      case dict:fetch(type, Tile) of
-        map_boundary ->
+  case dict:fetch(type, Tile) of
+    map_boundary ->
+      Visible = false,
+      Movement = false,
+      Symbol = "wall";
+    space ->
+      Visible = true,
+      Movement = 1,
+      Symbol = "blank";
+    wall ->
+      Visible = false,
+      Movement = false,
+      Symbol = "wall";
+    door ->
+      #structure{state=State, hp=HP, rhp=RHP} = dict:fetch(structure, Tile),
+      case RHP >= 1 of
+        true ->
           Visible = false,
           Movement = false,
-          Symbol = 2;
-        space ->
-          Visible = true,
-          Movement = 1,
-          Symbol = 1;
-        wall ->
-          Visible = false,
-          Movement = false,
-          Symbol = 2;
-        door ->
-          #structure{state=State, hp=HP, rhp=RHP} = dict:fetch(structure, Tile),
-          case RHP >= 1 of
-            true ->
-              Visible = false,
-              Movement = false,
-              Symbol = 4;
+          Symbol = "repairedDoor";
+        false ->
+          case HP >= 1 of
             false ->
-              case HP >= 1 of
-                false ->
-                  Visible = true,
-                  Movement = 1,
-                  Symbol = 6;
-                true ->
-                case State of
-                  closed ->
-                    Visible = false,
-                    Movement = false,
-                    Symbol = 3;
-                  opened ->
-                    Visible = true,
-                    Movement = 1,
-                    Symbol = 5
-                end
-            end
-          end;
-        window ->
-          #structure{state=State, hp=HP, rhp= RHP} = dict:fetch(structure, Tile),
-          case RHP >= 1 of
-            true ->
               Visible = true,
-              Movement = false,
-              Symbol = 8;
-            false ->
-              case HP >= 1 of
-                false ->
-                  Visible = true,
-                  Movement = 20,
-                  Symbol = 10;
-                true ->
-                  case State of
-                    closed ->
-                      Visible = true,
-                      Movement = false,
-                      Symbol = 7;
-                    opened ->
-                      Visible = true,
-                      Movement = false,
-                      Symbol = 9
-                  end
-              end
-          end;
-        obstacle ->
-          Visible = true,
-          Movement = 12,
-          Symbol = 11
+              Movement = 1,
+              Symbol = "brokenDoor";
+            true ->
+            case State of
+              closed ->
+                Visible = false,
+                Movement = false,
+                Symbol = "closedDoor";
+              opened ->
+                Visible = true,
+                Movement = 1,
+                Symbol = "openDoor"
+            end
+        end
       end;
-    Character ->
-      case ets:lookup_element(Character, zombified, 2) of
+    window ->
+      #structure{state=State, hp=HP, rhp= RHP} = dict:fetch(structure, Tile),
+      case RHP >= 1 of
         true ->
           Visible = true,
           Movement = false,
-          Symbol = 12;
+          Symbol = "repairedWindow";
         false ->
-          Visible = true,
-          Movement = false,
-          Symbol = 13
-      end
+          case HP >= 1 of
+            false ->
+              Visible = true,
+              Movement = 20,
+              Symbol = "brokenWindow";
+            true ->
+              case State of
+                closed ->
+                  Visible = true,
+                  Movement = false,
+                  Symbol = "closedWindow";
+                opened ->
+                  Visible = true,
+                  Movement = false,
+                  Symbol = "openWindow"
+              end
+          end
+      end;
+    obstacle ->
+      Visible = true,
+      Movement = 20,
+      Symbol = "obstacle"
   end,
-  Tile1 = dict:store(symbol, Symbol, Tile),
+  Tile1 = dict:store(symbol, Symbol, Tile);
   Tile2 = dict:store(visible, Visible, Tile1),
   dict:store(movement, Movement, Tile2).
 

@@ -1,0 +1,22 @@
+So for the rails app I want it to include any and all "shops", "training
+grounds", logins, character saves, character customizations, stories, and maybe
+some other things as well.
+So what would the basis of it be?
+
+User Pages:
+	Login/Account Setup
+	Listing of Characters
+	Status Page
+So what does a user need?  A login name, and password, and maybe that's all.
+Then they have many characters.
+
+Character Pages:
+	Status Page
+	Location Page
+
+Maybe I should have it so that you can only buy things from where you currently
+are located, so if you want to buy something new you have to find your way
+there first, or "have access" to it already.  So you go from your character
+location page to the shop, and not be able to directly go to the shop.
+Con:  People can't check out the shops unless they have an account, and it
+shouldn't be hidden like that...

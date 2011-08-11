@@ -1,0 +1,37 @@
+<%= form_for(@firearm) do |f| %>
+  <% if @firearm.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@firearm.errors.count, "error") %> prohibited this firearm from being saved:</h2>
+
+      <ul>
+      <% @firearm.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= f.label :fire_damage_base %><br />
+    <%= f.text_field :fire_damage_base %>
+  </div>
+  <div class="field">
+    <%= f.label :fire_damage_range %><br />
+    <%= f.text_field :fire_damage_range %>
+  </div>
+  <div class="field">
+    <%= f.label :rate_of_fire %><br />
+    <%= f.text_field :rate_of_fire %>
+  </div>
+  <div class="field">
+    <%= f.label :clip_type %><br />
+    <%= f.text_field :clip_type %>
+  </div>
+  <div class="field">
+    <%= f.label :ammo_type %><br />
+    <%= f.text_field :ammo_type %>
+  </div>
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>

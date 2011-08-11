@@ -1,0 +1,26 @@
+<h2>Editing city</h2>
+
+<%= form_for @city, :url => admin_city_path do |f| %>
+  <% if @city.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@city.errors.count, "error") %> prohibited this city from being saved:</h2>
+
+      <ul>
+      <% @city.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= f.label :name %><br />
+    <%= f.text_field :name %>
+  </div>
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>
+
+<%= link_to 'Show', admin_city_path %> |
+<%= link_to 'Back', admin_cities_path %>

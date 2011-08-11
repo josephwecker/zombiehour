@@ -1,0 +1,30 @@
+<h2>Editing point_of_interest</h2>
+
+<%= form_for @point_of_interest, :url => admin_city_district_point_of_interest_path do |f| %>
+  <% if @point_of_interest.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@point_of_interest.errors.count, "error") %> prohibited this point_of_interest from being saved:</h2>
+
+      <ul>
+      <% @point_of_interest.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= f.label :name %><br />
+    <%= f.text_field :name %>
+  </div>
+  <div class="field">
+    <%= f.label :stocks %><br />
+    <%= f.text_field :stocks %>
+  </div>
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>
+
+<%= link_to 'Show', admin_city_district_point_of_interest_path(@city, @district, @point_of_interest) %> |
+<%= link_to 'Back', admin_city_district_point_of_interests_path %>

@@ -1,0 +1,30 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <b>Fire damage base:</b>
+  <%= @firearm.fire_damage_base %>
+</p>
+
+<p>
+  <b>Fire damage range:</b>
+  <%= @firearm.fire_damage_range %>
+</p>
+
+<p>
+  <b>Rate of fire:</b>
+  <%= @firearm.rate_of_fire %>
+</p>
+
+<p>
+  <b>Clip type:</b>
+  <%= @firearm.clip_type %>
+</p>
+
+<p>
+  <b>Ammo type:</b>
+  <%= @firearm.ammo_type %>
+</p>
+
+
+<%= link_to 'Edit', edit_firearm_path(@firearm) %> |
+<%= link_to 'Back', firearms_path %>

@@ -1,0 +1,40 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <b>Type:</b>
+  <%= @item.type %>
+</p>
+
+<p>
+  <b>Name:</b>
+  <%= @item.name %>
+</p>
+
+<p>
+  <b>Icon:</b>
+  <%= @item.icon %>
+</p>
+
+<p>
+  <b>Cost:</b>
+  <%= @item.cost %>
+</p>
+
+<p>
+  <b>Weight:</b>
+  <%= @item.weight %>
+</p>
+
+<p>
+  <b>Space:</b>
+  <%= @item.space %>
+</p>
+
+<p>
+  <b>Description:</b>
+  <%= @item.description %>
+</p>
+
+
+<%= link_to 'Edit', edit_admin_item_path(@item) %> |
+<%= link_to 'Back', admin_items_path %>

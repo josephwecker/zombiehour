@@ -6,7 +6,7 @@
 create([Scenario, Map, Characters, SpawnPoints, TypeAttrs]) ->
   Position = lists:nth(random:uniform(length(SpawnPoints)), SpawnPoints),
   Character = ets:new(character_sheet, [set, public]),
-  ets:insert(Character, [{map, Map}, {location, Position}]),
+  ets:insert(Character, [{map, Map}, {location, Position}, {moved, false}]),
   {Players, Zombies} = Characters,
   {Type, Attrs} = TypeAttrs,
   case Type of
@@ -20,7 +20,7 @@ create([Scenario, Map, Characters, SpawnPoints, TypeAttrs]) ->
   end,
   {ok, CPid} = gen_server:start_link(?MODULE, [Character, Pid, Scenario, Characters], []),
   ets:insert(Character, {id, CPid}),
-  ets:insert(Table, {Character}),
+  ets:insert(Table, {Character, Position, quick_info}),
   scenario:update_map(Map, Position, character, Character, self()),
   Pid.
 
@@ -90,7 +90,7 @@ learn_tiles(Map, Tiles) ->
   lists:keysort(1, lists:map(
     fun(Key) ->
         {Key, Tile} = digraph:vertex(Map, Key),
-        Sym = dict:fetch(symbol, Tile)+16,
+        Sym = lists:concat([dict:fetch(symbol, Tile),"_shaded"]),
         {Key, Sym}
     end,
     Tiles)).
@@ -143,7 +143,8 @@ get_kill(Character, Scenario) ->
 unlock(Character) ->
   ets:insert(Character, {locked, false}).
 
-heat_up(Character, Amount) ->
+heat_up(Pid, Character, Amount) ->
+  gen_server:cast(Pid, {update_stat, cooldown}),
   ets:update_counter(Character, cooldown, Amount).
 
 init([Character, Pid, Scenario, CharLists]) ->
@@ -236,7 +237,7 @@ handle_cast({dress_wound, Direction}, State) ->
           gen_server:cast(self(), {destroy_item, first_aid_kit})
       end
   end,
-  heat_up(Character, 26),
+  heat_up(Pid, Character, 26),
   unlock(Character),
   {noreply, State};
 
@@ -286,7 +287,7 @@ handle_cast({attack, Direction}, State) ->
           end
       end
   end,
-  heat_up(Character, 16),
+  heat_up(Pid, Character, 16),
   unlock(Character),
   {noreply, State};
 
@@ -326,7 +327,7 @@ handle_cast({shoot, Direction}, State) ->
               end
           end,
           gen_server:cast(self(), {lose_ammo, 1}),
-          heat_up(Character, 16)
+          heat_up(Pid, Character, 16)
       end;
     false ->
       gen_server:cast(Pid, {msg, {notify, "You don't have any ammunition left."}})
@@ -335,7 +336,7 @@ handle_cast({shoot, Direction}, State) ->
   {noreply, State};
 
 handle_cast({walk, Direction}, State) ->
-  {Character, {Scenario, _}, _} = State,
+  {Character, {Scenario, Pid}, _} = State,
   case Direction of
     "" ->
       unlock(Character);
@@ -369,9 +370,20 @@ handle_cast({walk, Direction}, State) ->
               NewLocation = DesiredLocation,
               scenario:update_map(Map, Location, character, nil, Scenario),
               scenario:update_map(Map, NewLocation, character, Character, Scenario),
-              update_character(location, NewLocation, Character),
               Speed = lookup(Character, speed),
-              heat_up(Character, Speed + Cost),
+              update_character(location, NewLocation, Character),
+              case length(Direction) > 5 of
+                true ->
+                  Cooldown = round((Speed + Cost) * 1.41);
+                false ->
+                  Cooldown = Speed + Cost
+              end,
+              update_character(moved, {Direction, Cooldown}, Character),
+              %from here
+              %Alert = lists:concat(["walk_", Direction]),
+              %gen_server:cast(Pid, {add_alert, {Alert, Speed + Cost}}),
+              %to here
+              heat_up(Pid, Character, Cooldown),
               unlock(Character)
           end
       end
@@ -379,28 +391,26 @@ handle_cast({walk, Direction}, State) ->
   {noreply, State};
 
 handle_cast({open, Direction}, State) ->
-  {Character, {Scenario, _}, _} = State,
+  {Character, {Scenario, Pid}, _} = State,
   Location = lookup(Character, location),
   Target = nav:neighbor(Location, Direction),
   Map = lookup(Character, map),
   {Target, TileData} = digraph:vertex(Map, Target),
-  Pid = lookup(Character, id),
   case dict:fetch(structure,TileData) of
     nil ->
       gen_server:cast(Pid, {msg, {notify, "There's nothing to open there."}});
     _Structure ->
       NewTile = tile:open(TileData),
       gen_server:cast(Scenario, {update_map, {Map, Target, NewTile}}),
-      heat_up(Character, 8)
+      heat_up(Pid, Character, 8)
   end,
   unlock(Character),
   {noreply, State};
 
 handle_cast({close, Direction}, State) ->
-  {Character, {Scenario, _}, _} = State,
+  {Character, {Scenario, Pid}, _} = State,
   Location = lookup(Character, location),
   Target = nav:neighbor(Location, Direction),
-  Pid = lookup(Character, id),
   Map = lookup(Character, map),
   {Target, TileData} = digraph:vertex(Map, Target),
   case dict:fetch(structure,TileData) of
@@ -409,16 +419,15 @@ handle_cast({close, Direction}, State) ->
     _Structure ->
       NewTile = tile:close(TileData),
       gen_server:cast(Scenario, {update_map, {Map, Target, NewTile}}),
-      heat_up(Character, 8)
+      heat_up(Pid, Character, 8)
   end,
   unlock(Character),
   {noreply, State};
 
 handle_cast({repair, Direction}, State) ->
-  {Character, {Scenario, _}, _} = State,
+  {Character, {Scenario, Pid}, _} = State,
   Location = lookup(Character, location),
   Target = nav:neighbor(Location, Direction),
-  Pid = lookup(Character, id),
   Map = lookup(Character, map),
   {Target, TileData} = digraph:vertex(Map, Target),
   case dict:fetch(structure,TileData) of
@@ -427,7 +436,7 @@ handle_cast({repair, Direction}, State) ->
     _Structure ->
       NewTile = tile:repair_tile(TileData,2),
       gen_server:cast(Scenario, {update_map, {Map, Target, NewTile}}),
-      heat_up(Character, 16)
+      heat_up(Pid, Character, 16)
   end,
   unlock(Character),
   {noreply, State};

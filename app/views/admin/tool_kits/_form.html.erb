@@ -1,0 +1,25 @@
+<%= form_for(@tool_kit) do |f| %>
+  <% if @tool_kit.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@tool_kit.errors.count, "error") %> prohibited this tool_kit from being saved:</h2>
+
+      <ul>
+      <% @tool_kit.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= f.label :tool_type %><br />
+    <%= f.text_field :tool_type %>
+  </div>
+  <div class="field">
+    <%= f.label :enhancement %><br />
+    <%= f.text_field :enhancement %>
+  </div>
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>

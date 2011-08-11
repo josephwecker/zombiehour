@@ -1,4 +1,35 @@
 Zombiehour::Application.routes.draw do
+
+
+  root :to => "intro#index"
+
+  match 'controls' => "intro#controls"
+  match 'contact' => "intro#contact"
+
+  match 'login'       => 'users#login'
+  match 'signup'      => 'users#new'
+  match 'logout'      => 'users#logout'
+  match 'profile'     => 'users#show'
+  match 'edit_user'   => 'users#edit'
+  match 'create_user' => 'users#create'
+  match 'update_user' => 'users#update'
+  match 'users'       => 'users#index'
+
+  resources :characters
+ 
+  namespace :admin do
+    resources :items
+    resources :apparels
+    resources :weapons
+    resources :firearms
+    resources :tool_kits
+    resources :cities do
+      resources :districts do
+        resources :point_of_interests
+      end
+    end
+  end
+
   # The priority is based upon order of creation:
   # first created -> highest priority.
 

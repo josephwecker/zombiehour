@@ -1,0 +1,11 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  district: 
+  name: MyString
+  stocks: MyString
+
+two:
+  district: 
+  name: MyString
+  stocks: MyString

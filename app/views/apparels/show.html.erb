@@ -1,0 +1,45 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <b>Coverage:</b>
+  <%= @apparel.coverage %>
+</p>
+
+<p>
+  <b>Puncture resistance:</b>
+  <%= @apparel.puncture_resistance %>
+</p>
+
+<p>
+  <b>Sunder resistance:</b>
+  <%= @apparel.sunder_resistance %>
+</p>
+
+<p>
+  <b>Rupture resistance:</b>
+  <%= @apparel.rupture_resistance %>
+</p>
+
+<p>
+  <b>Psionic resistance:</b>
+  <%= @apparel.psionic_resistance %>
+</p>
+
+<p>
+  <b>Temperature resistance:</b>
+  <%= @apparel.temperature_resistance %>
+</p>
+
+<p>
+  <b>Flexibility:</b>
+  <%= @apparel.flexibility %>
+</p>
+
+<p>
+  <b>Comfort:</b>
+  <%= @apparel.comfort %>
+</p>
+
+
+<%= link_to 'Edit', edit_apparel_path(@apparel) %> |
+<%= link_to 'Back', apparels_path %>

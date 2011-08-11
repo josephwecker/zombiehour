@@ -1,0 +1,27 @@
+<h1>Listing point_of_interests</h1>
+
+<table>
+  <tr>
+    <th>District</th>
+    <th>Name</th>
+    <th>Stocks</th>
+    <th></th>
+    <th></th>
+    <th></th>
+  </tr>
+
+<% @point_of_interests.each do |point_of_interest| %>
+  <tr>
+    <td><%= point_of_interest.district %></td>
+    <td><%= point_of_interest.name %></td>
+    <td><%= point_of_interest.stocks %></td>
+    <td><%= link_to 'Show', point_of_interest %></td>
+    <td><%= link_to 'Edit', edit_point_of_interest_path(point_of_interest) %></td>
+    <td><%= link_to 'Destroy', point_of_interest, :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New Point of interest', new_point_of_interest_path %>

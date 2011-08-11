@@ -1,0 +1,20 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <b>District:</b>
+  <%= @district.name %>
+</p>
+
+<p>
+  <b>Name:</b>
+  <%= @point_of_interest.name %>
+</p>
+
+<p>
+  <b>Stocks:</b>
+  <%= @point_of_interest.stocks %>
+</p>
+
+
+<%= link_to 'Edit', edit_admin_city_district_point_of_interest_path(@city, @district, @point_of_interest) %> |
+<%= link_to 'Back', admin_city_district_point_of_interests_path %>

@@ -59,8 +59,11 @@ handle_cast(tick, {Character, CharPid}) ->
   end,
   {noreply, {Character, CharPid}};
 
-handle_cast({msg, Msg}, State) -> {noreply, State};
+handle_cast({add_alert, _Alert}, State) -> {noreply, State};
 
+handle_cast({msg, _Msg}, State) -> {noreply, State};
+
+handle_cast({update_stat, _Stat}, State) -> {noreply, State};
 handle_cast(stop, _State) ->
   {stop, normal, scenario_closed};
 

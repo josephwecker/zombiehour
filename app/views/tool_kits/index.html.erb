@@ -1,0 +1,25 @@
+<h1>Listing tool_kits</h1>
+
+<table>
+  <tr>
+    <th>Tool type</th>
+    <th>Enhancement</th>
+    <th></th>
+    <th></th>
+    <th></th>
+  </tr>
+
+<% @tool_kits.each do |tool_kit| %>
+  <tr>
+    <td><%= tool_kit.tool_type %></td>
+    <td><%= tool_kit.enhancement %></td>
+    <td><%= link_to 'Show', tool_kit %></td>
+    <td><%= link_to 'Edit', edit_tool_kit_path(tool_kit) %></td>
+    <td><%= link_to 'Destroy', tool_kit, :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New Tool kit', new_tool_kit_path %>

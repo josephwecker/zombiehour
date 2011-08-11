@@ -1,0 +1,35 @@
+<h1>Listing items</h1>
+
+<table>
+  <tr>
+    <th>Type</th>
+    <th>Name</th>
+    <th>Icon</th>
+    <th>Cost</th>
+    <th>Weight</th>
+    <th>Space</th>
+    <th>Description</th>
+    <th></th>
+    <th></th>
+    <th></th>
+  </tr>
+
+<% @items.each do |item| %>
+  <tr>
+    <td><%= item.type %></td>
+    <td><%= item.name %></td>
+    <td><%= item.icon %></td>
+    <td><%= item.cost %></td>
+    <td><%= item.weight %></td>
+    <td><%= item.space %></td>
+    <td><%= item.description %></td>
+    <td><%= link_to 'Show', admin_item_path(item) %></td>
+    <td><%= link_to 'Edit', edit_admin_item_path(item) %></td>
+    <td><%= link_to 'Destroy', admin_item_path(item), :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New Item', new_admin_item_path %>

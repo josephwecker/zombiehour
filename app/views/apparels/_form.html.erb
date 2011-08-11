@@ -1,0 +1,49 @@
+<%= form_for(@apparel) do |f| %>
+  <% if @apparel.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@apparel.errors.count, "error") %> prohibited this apparel from being saved:</h2>
+
+      <ul>
+      <% @apparel.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= f.label :coverage %><br />
+    <%= f.text_field :coverage %>
+  </div>
+  <div class="field">
+    <%= f.label :puncture_resistance %><br />
+    <%= f.text_field :puncture_resistance %>
+  </div>
+  <div class="field">
+    <%= f.label :sunder_resistance %><br />
+    <%= f.text_field :sunder_resistance %>
+  </div>
+  <div class="field">
+    <%= f.label :rupture_resistance %><br />
+    <%= f.text_field :rupture_resistance %>
+  </div>
+  <div class="field">
+    <%= f.label :psionic_resistance %><br />
+    <%= f.text_field :psionic_resistance %>
+  </div>
+  <div class="field">
+    <%= f.label :temperature_resistance %><br />
+    <%= f.text_field :temperature_resistance %>
+  </div>
+  <div class="field">
+    <%= f.label :flexibility %><br />
+    <%= f.text_field :flexibility %>
+  </div>
+  <div class="field">
+    <%= f.label :comfort %><br />
+    <%= f.text_field :comfort %>
+  </div>
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>

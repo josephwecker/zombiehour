@@ -1,0 +1,13 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  user: 
+  name: MyString
+  gold: 1
+  inventory: MyString
+
+two:
+  user: 
+  name: MyString
+  gold: 1
+  inventory: MyString

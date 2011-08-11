@@ -1,0 +1,21 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  coverage: MyString
+  puncture_resistance: 1
+  sunder_resistance: 1
+  rupture_resistance: 1
+  psionic_resistance: 1
+  temperature_resistance: 1
+  flexibility: 1
+  comfort: 1
+
+two:
+  coverage: MyString
+  puncture_resistance: 1
+  sunder_resistance: 1
+  rupture_resistance: 1
+  psionic_resistance: 1
+  temperature_resistance: 1
+  flexibility: 1
+  comfort: 1

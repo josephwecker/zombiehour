@@ -1,0 +1,9 @@
+<h2>A list of all users:</h2>
+
+<% @users.each do |user| %>
+    <%= user.login %><br />
+<% end %>
+
+<br />
+
+<%= link_to 'Join Too', signup_path %>

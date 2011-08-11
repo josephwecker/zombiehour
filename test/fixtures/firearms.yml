@@ -1,0 +1,15 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  fire_damage_base: 1
+  fire_damage_range: 1
+  rate_of_fire: MyString
+  clip_type: MyString
+  ammo_type: MyString
+
+two:
+  fire_damage_base: 1
+  fire_damage_range: 1
+  rate_of_fire: MyString
+  clip_type: MyString
+  ammo_type: MyString

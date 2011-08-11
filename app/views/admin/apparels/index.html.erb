@@ -1,0 +1,37 @@
+<h1>Listing apparels</h1>
+
+<table>
+  <tr>
+    <th>Coverage</th>
+    <th>Puncture resistance</th>
+    <th>Sunder resistance</th>
+    <th>Rupture resistance</th>
+    <th>Psionic resistance</th>
+    <th>Temperature resistance</th>
+    <th>Flexibility</th>
+    <th>Comfort</th>
+    <th></th>
+    <th></th>
+    <th></th>
+  </tr>
+
+<% @apparels.each do |apparel| %>
+  <tr>
+    <td><%= apparel.coverage %></td>
+    <td><%= apparel.puncture_resistance %></td>
+    <td><%= apparel.sunder_resistance %></td>
+    <td><%= apparel.rupture_resistance %></td>
+    <td><%= apparel.psionic_resistance %></td>
+    <td><%= apparel.temperature_resistance %></td>
+    <td><%= apparel.flexibility %></td>
+    <td><%= apparel.comfort %></td>
+    <td><%= link_to 'Show', apparel %></td>
+    <td><%= link_to 'Edit', edit_apparel_path(apparel) %></td>
+    <td><%= link_to 'Destroy', apparel, :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New Apparel', new_apparel_path %>

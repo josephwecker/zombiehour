@@ -1,0 +1,15 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <b>Tool type:</b>
+  <%= @tool_kit.tool_type %>
+</p>
+
+<p>
+  <b>Enhancement:</b>
+  <%= @tool_kit.enhancement %>
+</p>
+
+
+<%= link_to 'Edit', edit_tool_kit_path(@tool_kit) %> |
+<%= link_to 'Back', tool_kits_path %>

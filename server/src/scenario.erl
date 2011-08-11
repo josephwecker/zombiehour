@@ -130,24 +130,26 @@ handle_cast({make_noise, {Character, Volume, Noise, Msg}}, State) ->
   {{P, Z, _}, _, _, _} = State,
   Players = ets:tab2list(P),
   Zombies = ets:tab2list(Z),
-  case character:lookup(Character, zombified) of
-    true ->
-      Characters = Players ++ lists:delete({Character}, Zombies);
-    false ->
-      Characters = lists:delete({Character}, Players) ++ Zombies
-  end,
+  %case character:lookup(Character, zombified) of
+  %  true ->
+  %    Characters = Players ++ lists:delete({Character}, Zombies);
+  %  false ->
+  %    Characters = lists:delete({Character}, Players) ++ Zombies
+  %end,
+    Characters = Players ++ Zombies
   Location = character:lookup(Character, location),
   make_noise(Characters, Location, Volume, Noise, Msg),
   {noreply, State};
 
 handle_cast({make_scene, {Character, Scene, Msg}}, State) ->
   {{Players, Zombies, _}, _, _, _} = State,
-  case character:lookup(Character, zombified) of
-    true ->
-      Characters = Players ++ lists:delete(Character, Zombies);
-    false ->
-      Characters = lists:delete(Character, Players) ++ Zombies
-  end,
+  %case character:lookup(Character, zombified) of
+  %  true ->
+  %    Characters = Players ++ lists:delete(Character, Zombies);
+  %  false ->
+  %    Characters = lists:delete(Character, Players) ++ Zombies
+  %end,
+    Characters = Players ++ Zombies
   Location = character:lookup(Character, location),
   make_scene(Characters, Location, Scene, Msg),
   {noreply, State};
@@ -163,7 +165,7 @@ handle_cast({update_board, Character}, State) ->
   FlatBoard = lists:concat(["Players-<br/>", CharStats, "Zombies- ",
       ets:info(Zombies, size)]),
   lists:foreach(
-    fun({Char}) ->
+    fun({Char, _, _}) ->
         Pid = character:lookup(Char, id),
         gen_server:cast(Pid, {update_board, FlatBoard})
     end,
