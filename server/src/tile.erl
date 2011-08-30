@@ -10,7 +10,7 @@
   }).
 
 initialize_map(Map) ->
-  MapData = test_map_data(),
+  MapData = map_data2(),
   SpawnPoints = lists:flatmap(
     fun(RowCount) ->
       lists:map(
@@ -231,7 +231,7 @@ update_tile(Tile) ->
       Movement = 20,
       Symbol = "obstacle"
   end,
-  Tile1 = dict:store(symbol, Symbol, Tile);
+  Tile1 = dict:store(symbol, Symbol, Tile),
   Tile2 = dict:store(visible, Visible, Tile1),
   dict:store(movement, Movement, Tile2).
 

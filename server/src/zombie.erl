@@ -4,7 +4,8 @@
 -export([create/1]).
 
 figure_out_what_to_do(Character) ->
-  case character:find_target(Character) of
+  CharList = character:lookup(Character, visible_characters),
+  case character:find_target(Character, CharList) of
     false ->
       Direction = lists:nth(random:uniform(8), ["northwest", "north",
           "northeast", "east", "southeast", "south", "southwest", "west"]);
@@ -22,10 +23,9 @@ init([Character]) ->
   Attrs = [{cooldown, 0},
     {tag, "Zomber"}, {hp, 12}, {visible_tiles, []}, {sight, 7}, {locked, false},
     {melee_acc, 0}, {ranged_acc, 0}, {avoidance, 50}, {melee_damage, {1,2}},
-    {zombified, true}, {speed, 18}],
+    {visible_characters, []}, {zombified, true}, {speed, 18}],
   ets:insert(Character, Attrs),
-  Location = ets:lookup_element(Character, location, 2),
-  character:update_character(location, Location, Character),
+  %Location = ets:lookup_element(Character, location, 2),
   {ok, {Character, unknown}}.
 
 handle_call(_Request, _From, State) ->

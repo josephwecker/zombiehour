@@ -57,69 +57,35 @@ compare_maps(Map, Map2, Character) ->
     false ->
       lists:concat(["{\"moved\":\"false\",\"origin\":\"",Location,"\",\"changes\":",List,"}"]);
     {Dir, Speed} ->
-      character:update_character(moved, false, Character),
+      CPid = ets:lookup_element(Character, id, 2),
+      gen_server:cast(CPid, {update_character, {moved, false}}),
       io:format("~p~n",[Speed]),
       lists:concat(["{\"moved\":\"",Dir,"\",\"origin\":\"",Location,"\",\"speed\":\"",Speed,"\",\"changes\":",List,"}"])
   end.
 
-find_sprites(Character) ->
-  ScenarioMap = character:lookup(Character, map),
-  VisibleTiles = character:lookup(Character, visible_tiles),
-  KnownTiles = character:lookup(Character, known_tiles),
-  Location = character:lookup(Character, location),
-  {X,Y} = nav:position(Location),
-  XO = X - 13,
-  YO = Y - 13,
-  lists:flatten(
-    lists:map(
-      fun(Row) ->
-          lists:map(
-            fun(Col) ->
-                Key = tile:coords_to_key( XO + Col, YO + Row ),
-                JSKey = lists:concat([Col, "n", Row]),
-                case lists:member(Key, VisibleTiles) of
-                  false ->
-                    case lists:keyfind(Key, 1, KnownTiles) of
-                      false ->
-                        {JSKey, "unknown_shaded"};
-                      {Key, Mem} ->
-                        {JSKey, Mem}
-                    end;
-                  true ->
-                    {Key, Tile} = digraph:vertex(ScenarioMap, Key),
-                    %case dict:fetch(refresh_map, Tile) of
-                    %  true ->
-                    %    gen_server:cast(self(), {update_character, {location,
-                    %          Location}});
-                    %  false ->
-                    %    ok
-                    %end,
-                    {JSKey, lists:concat([dict:fetch(symbol, Tile),"_clear"])}
-                end
-            end,
-            lists:seq(0,26))
-      end,
-      lists:seq(0,26))).
+compare_sprites(Sprites, Sprites2) ->
+  CharList = [Char || Char <- Sprites, not(lists:member(Char, Sprites2))],
+  create_json_object(CharList).
 
-clear_map() ->
-  [{lists:concat([X,"n",Y]), "unknown_shaded"} || Y <- lists:seq(0,26), X <-
-    lists:seq(0,26) ].
 
-compare_sprites(Sprite, Sprite2, Character) ->
-  TileList = [Tile || {Tile, Tile2} <- lists:zip(Map, Map2), Tile =/= Tile2],
-  List = create_json_object(TileList),
-  Location = character:lookup(Character, location),
-  case character:lookup(Character, moved) of
+get_sprites(Sprites, Character) ->
+  Pid = character:lookup(Character, id),
+  Sprites2 = gen_server:call(Pid, get_sprites),
+  case Sprites2 == Sprites of
+    true ->
+      SpriteData = "\"nil\"",
+      NewSprites  = Sprites;
     false ->
-      lists:concat(["{\"moved\":\"false\",\"origin\":\"",Location,"\",\"changes\":",List,"}"]);
-    {Dir, Speed} ->
-      character:update_character(moved, false, Character),
-      io:format("~p~n",[Speed]),
-      lists:concat(["{\"moved\":\"",Dir,"\",\"origin\":\"",Location,"\",\"speed\":\"",Speed,"\",\"changes\":",List,"}"])
-  end.
+      SpriteData = compare_sprites(Sprites2, Sprites),
+      NewSprites  = Sprites2
+  end,
+  {SpriteData, NewSprites}. 
 
-create_json_object(PropList) ->
-  create_json_object(PropList, "{").
+create_json_object([{_,_}|_] = PropList) ->
+  create_json_object(PropList, "{");
+
+create_json_object([]) ->
+  "\"nil\"".
 
 create_json_object([{Key, Value}], Result) ->
   Item = lists:concat(["\"", Key, "\":\"", Value, "\"}"]),
@@ -198,7 +164,7 @@ init([Character, Name, Class]) ->
   end,
   Attrs = lists:keysort(1, [{tag, Name}, {queue, []}, {cooldown, 0}, {maxhp, 20}, {hp, 20},
     {ammo, 20}, {kills,0}, {living, ""}, {board,""}, {queuestring,""},
-    {visible_tiles, []}, {known_tiles, []}, {locked, false}, {sight, 10},
+    {visible_tiles, []}, {visible_characters, []}, {known_tiles, []}, {locked, false}, {sight, 10},
     {inventory, [pistol, first_aid_kit]}, {zombified, false}, {speed, 8},
     %Other Attrs
     {melee_acc, 0}, {ranged_acc, 0}, {avoidance, 50}, {melee_damage, {1,2}},
@@ -207,7 +173,6 @@ init([Character, Name, Class]) ->
     {dress_wounds, 10}, {repair, 10}]),
   ets:insert(Character, lists:keymerge(1, Attrs, ClassAttrs)),
   Location = ets:lookup_element(Character, location, 2),
-  character:update_character(location, Location, Character),
   Update = {[],[],clear_map(),[],[tag,maxhp,hp,ammo,board]},
   Addresses = {inactive, unknown},
   {ok, {Character, Update, Addresses}}.
@@ -250,15 +215,7 @@ handle_cast(tick, {Character, Update, {Address, CharPid}}) ->
     Address ->
       {Feedback, Alerts, Map, Sprites, Stats} = Update1,
 
-      Sprites2 = find_sprites(Character),
-      case Sprites2 == Sprites of
-        true ->
-          SpriteData = "\"nil\"",
-          NewSprites  = Sprites;
-        false ->
-          SpriteData = compare_sprites(Sprites2, Sprites, Character),
-          NewSprites  = Sprites2
-      end,
+      {SpriteData, NewSprites} = get_sprites(Sprites, Character),
 
       Map2 = build_map(Character),
       case Map2 == Map of

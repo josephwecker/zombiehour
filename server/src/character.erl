@@ -1,7 +1,7 @@
 -module(character).
 -behavior(gen_server).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([create/1, lookup/2, find_target/1, find_target/2, update_character/3]).
+-export([create/1, lookup/2, find_target/2, find_target/3]).
 
 create([Scenario, Map, Characters, SpawnPoints, TypeAttrs]) ->
   Position = lists:nth(random:uniform(length(SpawnPoints)), SpawnPoints),
@@ -11,51 +11,50 @@ create([Scenario, Map, Characters, SpawnPoints, TypeAttrs]) ->
   {Type, Attrs} = TypeAttrs,
   case Type of
     player ->
-      {ok, Pid} = player:create([Character|Attrs]),
-      Table = Players;
+      {ok, Pid} = player:create([Character|Attrs]);
     zombie ->
       {ok, Pid} = zombie:create([Character|Attrs]),
-      gen_server:cast(Scenario, {add_to_tick_list, Pid}),
-      Table = Zombies
+      gen_server:cast(Scenario, {add_to_tick_list, Pid})
   end,
   {ok, CPid} = gen_server:start_link(?MODULE, [Character, Pid, Scenario, Characters], []),
   ets:insert(Character, {id, CPid}),
-  ets:insert(Table, {Character, Position, quick_info}),
-  scenario:update_map(Map, Position, character, Character, self()),
+  %ets:insert(Table, {Character, Position, quick_info}),
+  update_map_data(Character, Position, Characters),
+  update_character(location, Position, Character, Characters),
   Pid.
 
 lookup(Tab, Atom) ->
   ets:lookup_element(Tab, Atom, 2).
 
-find_target(Character) ->
-  Tiles = lookup(Character, visible_tiles),
-  target(Character, Tiles).
+visible_characters(Character, {PlayerList, ZombieList}) ->
+  VisibleTiles = lookup(Character, visible_tiles),
+  Zombies = check_character_list(ets:tab2list(ZombieList), VisibleTiles),
+  Players = check_character_list(ets:tab2list(PlayerList), VisibleTiles),
+  lists:concat([Zombies, Players]).
 
-find_target(Character, Direction) ->
+check_character_list(CharacterList, VisibleTiles) ->
+  [{Tab, Position, Attrs} || {Tab, Position, Attrs} <- CharacterList,
+    lists:member(Position, VisibleTiles)].
+
+character_present(Location, {PL, ZL}) ->
+  lists:keyfind(Location, 2, lists:concat([PL, ZL])).
+
+
+find_target(Character, CharList) ->
+  Tiles = lookup(Character, visible_tiles),
+  target(Character, CharList, Tiles).
+
+find_target(Character, CharList, Direction) ->
   Origin = lookup(Character, location),
   Tiles = nav:get_quadrant(Origin, Direction, lookup(Character, sight)),
   VisibleTiles = lookup(Character, visible_tiles),
   TargetTiles = [ X || X <- Tiles, lists:member(X, VisibleTiles) ],
-  target(Character, TargetTiles).
+  target(Character, CharList, TargetTiles).
 
-target(Character, Tiles) ->
-  Map = lookup(Character, map),
-  Targets = lists:flatmap(
-    fun(Tile) ->
-        {Tile, TileData} = digraph:vertex(Map, Tile),
-        case dict:fetch(character, TileData) of
-          nil ->
-            [];
-          OtherCharacter ->
-            case lookup(OtherCharacter, zombified) /= lookup(Character, zombified) of
-              true ->
-                [Tile];
-              false ->
-                []
-            end
-        end
-    end,
-    Tiles),
+target(Character, CharList, Tiles) ->
+  List = [{CharPid, Pos, Attrs} || {CharPid, Pos, Attrs} <- CharList,
+    lookup(CharPid, zombified) =/= lookup(Character, zombified)],
+  Targets = check_character_list(List, Tiles),
   Origin = lookup(Character, location),
   case Targets of
     [] ->
@@ -67,20 +66,21 @@ target(Character, Tiles) ->
   end.
 
 find_closest(Origin, Characters) ->
-  %io:format("~p~p~n",[Origin, Characters]),
   [H|T] = Characters,
-  find_closest(Origin, T, H).
+  {_, HPos, _} = H,
+  find_closest(Origin, T, HPos).
 
 find_closest(_Origin, [], BestPick) ->
   BestPick;
 
 find_closest(Origin, Characters, BestPick) ->
   [H|T] = Characters,
+  {_, HPos, _} = H,
   BS = nav:distance(Origin, BestPick),
-  HS = nav:distance(Origin, H),
+  HS = nav:distance(Origin, HPos),
   case HS < BS of
     true ->
-      Winner = H;
+      Winner = HPos;
     false ->
       Winner = BestPick
   end,
@@ -95,10 +95,23 @@ learn_tiles(Map, Tiles) ->
     end,
     Tiles)).
 
-update_character(Attr, Value, Character) ->
+update_map_data(Character, Location, CharLists) ->
+  case lookup(Character, zombified) of
+    true ->
+      {_, Table} = CharLists;
+    false ->
+      io:format("hi",[]),
+      {Table, _} = CharLists
+  end,
+  Position = lookup(Character, location),
+  ets:insert(Table, {Character, Position, quick_info}).
+
+
+update_character(Attr, Value, Character, CharLists) ->
   ets:insert(Character, {Attr, Value}),
   case Attr of
     location ->
+      update_map_data(Character, Value, CharLists),
       VisibleTiles = los:character_los(Character),
       case lookup(Character, zombified) of
         true ->
@@ -108,7 +121,9 @@ update_character(Attr, Value, Character) ->
           Map = lookup(Character, map),
           KnownTiles = lists:ukeymerge(1, learn_tiles(Map, VisibleTiles), OldKnownTiles),
           ets:insert(Character, [{visible_tiles, VisibleTiles}, {known_tiles, KnownTiles}])
-      end;
+      end,
+      VisibleCharacters = visible_characters(Character, CharLists),
+      ets:insert(Character, {visible_characters, VisibleCharacters});
     _ ->
       ok
   end.
@@ -123,7 +138,7 @@ die({Character, {Scenario, _}, {PlayerList, ZombieList}}) ->
   end,
   Location = lookup(Character, location),
   Map = lookup(Character, map),
-  scenario:update_map(Map, Location, character, nil, Scenario),
+  update_map_data(Character, nil, {PlayerList, ZombieList}),
   case lookup(Character, zombified) of
     true ->
       ok;
@@ -152,42 +167,55 @@ init([Character, Pid, Scenario, CharLists]) ->
   State = {Character, Addresses, CharLists},
   {ok, State}.
 
+handle_call(get_sprites, _From, State) ->
+  {Character, _, Lists} = State,
+  Characters = visible_characters(Character, Lists),
+  Reply = lists:map(
+    fun({Tab, Pos, Attrs}) ->
+        {integer_to_list(Tab), Pos}
+    end,
+    Characters),
+  {reply, Reply, State};
+
 handle_call(_Request, _From, State) ->
   Reply = ok,
   {reply, Reply, State}.
 
 handle_cast({update_character, {Attr, Value}}, State) ->
-  {Character, _, _} = State,
-  update_character(Attr, Value, Character),
+  {Character, _, CharLists} = State,
+  update_character(Attr, Value, Character, CharLists),
   {noreply, State};
 
 handle_cast({take_damage, Amt}, State) ->
-  {Character, {Scenario, Pid}, _} = State,
+  {Character, {Scenario, Pid}, CharLists} = State,
   ets:update_counter(Character, hp, -Amt),
   gen_server:cast(Pid, {update_stat, hp}),
   NewHP = lookup(Character, hp),
   case NewHP >= 1 of
     true ->
-      scenario:update_map(Character, Scenario);
+      Location = lookup(Character, location),
+      update_map_data(Character, Location, CharLists);
     false ->
       die(State)
   end,
   {noreply, State};
 
 handle_cast({heal_damage, Amt}, State) ->
-  {Character, {Scenario, Pid}, _} = State,
+  {Character, {Scenario, Pid}, CharLists} = State,
   ets:update_counter(Character, hp, Amt),
   gen_server:cast(Pid, {update_stat, hp}),
-  scenario:update_map(Character, Scenario),
+  Location = lookup(Character, location),
+  update_map_data(Character, Location, CharLists),
   {noreply, State};
 
 handle_cast({destroy_item, Item}, State) ->
-  {Character, {Scenario, _}, _} = State,
+  {Character, {Scenario, _}, CharLists} = State,
   Inventory = lookup(Character, inventory),
   NewInventory = lists:delete(Item, Inventory),
   ets:insert(Character, {inventory, NewInventory}),
   %gen_server:cast(Pid, {update_stat, inventory}),
-  scenario:update_map(Character, Scenario),
+  Location = lookup(Character, location),
+  update_map_data(Character, Location, CharLists),
   {noreply, State};
 
 handle_cast(update_board, State) ->
@@ -242,12 +270,12 @@ handle_cast({dress_wound, Direction}, State) ->
   {noreply, State};
 
 handle_cast({attack, Direction}, State) ->
-  {Character, {Scenario, Pid}, _} = State,
+  {Character, {Scenario, Pid}, CharLists} = State,
   Map = lookup(Character, map),
   Neighbor = nav:neighbor(lookup(Character, location), Direction),
   {Neighbor, NbrTile} = digraph:vertex(Map, Neighbor),
-  case dict:fetch(character, NbrTile) of
-    nil ->
+  case character_present(NbrTile, CharLists) of
+    false ->
       case dict:fetch(structure, NbrTile) of
         nil ->
           gen_server:cast(Pid, {msg, {combat, "You swing at the open air."}});
@@ -263,7 +291,7 @@ handle_cast({attack, Direction}, State) ->
               gen_server:cast(Scenario, {update_map, {Map, Neighbor, NewTile}})
           end
       end;
-    Target ->
+    {Target, _, _} ->
       TPid = lookup(Target, id),
       case random:uniform(100)+lookup(Character, ranged_acc) >=
         lookup(Target, avoidance) of
@@ -292,8 +320,8 @@ handle_cast({attack, Direction}, State) ->
   {noreply, State};
 
 handle_cast({shoot, Direction}, State) ->
-  {Character, {Scenario, Pid}, _} = State,
-  Tile = character:find_target(Character, Direction),
+  {Character, {Scenario, Pid}, CharLists} = State,
+  Tile = character:find_target(Character, CharLists, Direction),
   case lookup(Character, ammo) >= 1 of
     true ->
       case Tile of
@@ -336,7 +364,14 @@ handle_cast({shoot, Direction}, State) ->
   {noreply, State};
 
 handle_cast({walk, Direction}, State) ->
-  {Character, {Scenario, Pid}, _} = State,
+  {Character, {Scenario, Pid}, CharLists} = State,
+  case lookup(Character, zombified) of
+    true ->
+      ok;
+    false ->
+      {Players, _} = CharLists,
+      io:format("~p~n",[ets:tab2list(Players)])
+  end,
   case Direction of
     "" ->
       unlock(Character);
@@ -349,15 +384,15 @@ handle_cast({walk, Direction}, State) ->
         {_, TileData} ->
           case dict:fetch(movement, TileData) of
             false ->
-              case dict:fetch(character, TileData) of
-                nil ->
+              case character_present(DesiredLocation, CharLists) of
+                false ->
                   case dict:fetch(structure, TileData) of
                     nil ->
                       unlock(Character);
                     _ ->
                       gen_server:cast(self(), {attack, Direction})
                   end;
-                Target ->
+                {Target, _, _} ->
                   case lookup(Target, zombified) == lookup(Character, zombified) of
                       true ->
                         unlock(Character);
@@ -368,17 +403,15 @@ handle_cast({walk, Direction}, State) ->
             Cost ->
               Location = lookup(Character, location),
               NewLocation = DesiredLocation,
-              scenario:update_map(Map, Location, character, nil, Scenario),
-              scenario:update_map(Map, NewLocation, character, Character, Scenario),
               Speed = lookup(Character, speed),
-              update_character(location, NewLocation, Character),
+              update_character(location, NewLocation, Character, CharLists),
               case length(Direction) > 5 of
                 true ->
                   Cooldown = round((Speed + Cost) * 1.41);
                 false ->
                   Cooldown = Speed + Cost
               end,
-              update_character(moved, {Direction, Cooldown}, Character),
+              update_character(moved, {Direction, Cooldown}, Character, CharLists),
               %from here
               %Alert = lists:concat(["walk_", Direction]),
               %gen_server:cast(Pid, {add_alert, {Alert, Speed + Cost}}),

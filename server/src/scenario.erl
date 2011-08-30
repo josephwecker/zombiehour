@@ -1,7 +1,7 @@
 -module(scenario).
 -behavior(gen_server).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([start/0, update_map/2, update_map/5]).
+-export([start/0, update_map/5]).
 
 start() ->
   gen_server:start_link(?MODULE, [], []).
@@ -30,12 +30,12 @@ init([]) ->
 spawn_character(Type, Map, Characters, SpawnPoints, Attrs) ->
   character:create([self(), Map, Characters, SpawnPoints, {Type, Attrs}]).
 
-update_map(Character, Scenario) ->
-  Map = ets:lookup_element(Character, map, 2),
-  Vertex = ets:lookup_element(Character, location, 2),
-  {Vertex, Tile} = digraph:vertex(Map, Vertex),
-  NewTile = tile:update_tile(Tile),
-  gen_server:cast(Scenario, {update_map, {Map, Vertex, NewTile}}).
+%update_map(Character, Scenario) ->
+%  Map = ets:lookup_element(Character, map, 2),
+%  Vertex = ets:lookup_element(Character, location, 2),
+%  {Vertex, Tile} = digraph:vertex(Map, Vertex),
+%  NewTile = tile:update_tile(Tile),
+%  gen_server:cast(Scenario, {update_map, {Map, Vertex, NewTile}}).
 
 update_map(Map, Vertex, Tile) ->
   digraph:add_vertex(Map, Vertex, Tile).
@@ -43,13 +43,6 @@ update_map(Map, Vertex, Tile) ->
 update_map(Map, Vertex, Attr, Value, Scenario) ->
   {Vertex, Tile} = digraph:vertex(Map, Vertex),
   case Attr of
-    character ->
-      case Value of
-        nil ->
-          NewTile = dict:store(character, nil, Tile);
-        Character ->
-          NewTile = dict:store(character, Character, Tile)
-      end;
     value ->
       NewTile = dict:store(value, Value, Tile);      
     Attr ->
@@ -136,7 +129,7 @@ handle_cast({make_noise, {Character, Volume, Noise, Msg}}, State) ->
   %  false ->
   %    Characters = lists:delete({Character}, Players) ++ Zombies
   %end,
-    Characters = Players ++ Zombies
+    Characters = Players ++ Zombies,
   Location = character:lookup(Character, location),
   make_noise(Characters, Location, Volume, Noise, Msg),
   {noreply, State};
@@ -149,7 +142,7 @@ handle_cast({make_scene, {Character, Scene, Msg}}, State) ->
   %  false ->
   %    Characters = lists:delete(Character, Players) ++ Zombies
   %end,
-    Characters = Players ++ Zombies
+    Characters = Players ++ Zombies,
   Location = character:lookup(Character, location),
   make_scene(Characters, Location, Scene, Msg),
   {noreply, State};
