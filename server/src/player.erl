@@ -20,15 +20,18 @@ build_map(Character) ->
           lists:map(
             fun(Col) ->
                 Key = tile:coords_to_key( XO + Col, YO + Row ),
-                JSKey = lists:concat([Col, "n", Row]),
+                %RelativePosition = {Col, Row},
+                %JSKey = lists:concat([Col, "n", Row]),
                 case lists:member(Key, VisibleTiles) of
                   false ->
-                    case lists:keyfind(Key, 1, KnownTiles) of
-                      false ->
-                        {JSKey, "unknown_shaded"};
-                      {Key, Mem} ->
-                        {JSKey, Mem}
-                    end;
+                    %case lists:keyfind(Key, 1, KnownTiles) of
+                      %false ->
+                        %{JSKey, "unknown_shaded"};
+                        {Key, "unknown_shaded"};
+                      %{Key, Mem} ->
+                        %{JSKey, Mem}
+                      %  {Key, Mem}
+                    %end;
                   true ->
                     {Key, Tile} = digraph:vertex(ScenarioMap, Key),
                     %case dict:fetch(refresh_map, Tile) of
@@ -38,7 +41,8 @@ build_map(Character) ->
                     %  false ->
                     %    ok
                     %end,
-                    {JSKey, lists:concat([dict:fetch(symbol, Tile),"_clear"])}
+                    %{JSKey, lists:concat([dict:fetch(symbol, Tile),"_clear"])}
+                    {Key, lists:concat([dict:fetch(symbol, Tile),"_clear"])}
                 end
             end,
             lists:seq(0,26))
@@ -46,12 +50,14 @@ build_map(Character) ->
       lists:seq(0,26))).
 
 clear_map() ->
-  [{lists:concat([X,"n",Y]), "unknown_shaded"} || Y <- lists:seq(0,26), X <-
+  [{lists:concat(["X",X,"Y",Y]), "unknown_shaded"} || Y <- lists:seq(0,26), X <-
     lists:seq(0,26) ].
 
 compare_maps(Map, Map2, Character) ->
-  TileList = [Tile || {Tile, Tile2} <- lists:zip(Map, Map2), Tile =/= Tile2],
+  %io:format("~p, ~p~n",[length(Map), length(Map2)]),
+  TileList = [{Key, Data} || {{Key, Data}, {_, Data2}} <- lists:zip(Map, Map2), Data =/= Data2],
   List = create_json_object(TileList),
+  io:format("~n______~n~p~n_____~n",[length(TileList)]),
   Location = character:lookup(Character, location),
   case character:lookup(Character, moved) of
     false ->
@@ -66,7 +72,6 @@ compare_maps(Map, Map2, Character) ->
 compare_sprites(Sprites, Sprites2) ->
   CharList = [Char || Char <- Sprites, not(lists:member(Char, Sprites2))],
   create_json_object(CharList).
-
 
 get_sprites(Sprites, Character) ->
   Pid = character:lookup(Character, id),

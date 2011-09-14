@@ -11,32 +11,65 @@
 	<link rel='stylesheet' type='text/css' href='../stylesheets/fonts/stylesheet.css' />
 </head>
 <body>
-	<div id="board"></div>
-	<div id="screen">
-		<div id="visible_area">
-			<div id="map"></div>
-			<div id="shadow"></div>
-			<div id="sprites"></div>
-			<div id="character"></div>
-		</div>
-	</div>
-	<div id="result">Welcome<br/></div>
-	<div id="flash"><p>hi</p></div>
-	<input id="chat_input" type="text"/>
-	<br />
-	<div id="status">
-		<div style="float:left;">
-			<span id="tag">Name</span><br />
-			HP: <span id="hp">hp</span>/<span id="maxhp">max</span>
-			Ammo: <span id="ammo">ammo</span>
-		</div>
-		<div style="float:left;width:140px;"><span id="queuestring">hi</span></div>
-		<div style="float:left;">
-			<div id="action_bar"><div class="filling">&nbsp;</div></div>
-			<span id="cooldown">0</span>
-		</div>
+	<div id="page">
 		
-	</div>
+		<div id="stats">
+			<div class="panel_content">
+				<div style="float:left;">
+					<span id="tag">Name</span><br />
+					HP: <span id="hp">hp</span>/<span id="maxhp">max</span>
+					Ammo: <span id="ammo">ammo</span>
+				</div>
+				<div style="float:left;width:140px;"><span id="queuestring">hi</span></div>
+				<div style="float:left;">
+					<div id="action_bar"><div class="filling"></div></div>
+					<span id="cooldown">0</span>
+				</div>
+			</div>
+		</div>
 
+		<div id="navigation">
+			<div id="visible_area">
+				<div id="map"></div>
+				<div id="shadow"></div>
+				<div id="sprites"></div>
+			</div>
+			<div id="character"></div>
+			<div id="north" class="nav_button"></div>
+			<div id="northeast" class="nav_button"></div>
+			<div id="east" class="nav_button"></div>
+			<div id="southeast" class="nav_button"></div>
+			<div id="south" class="nav_button"></div>
+			<div id="southwest" class="nav_button"></div>
+			<div id="west" class="nav_button"></div>
+			<div id="northwest" class="nav_button"></div>
+		</div>
+
+		<div id="observation">
+			<div class="panel_content">
+				<div id="quick_observe"></div>
+			</div>
+		</div>
+
+		<div id="actions">
+			<div class="panel_content">
+			</div>
+		</div>
+
+		<div id="dialog">
+			<div class="panel_content">
+				<div id="result">Welcome<br/></div>
+			</div>
+		</div>
+
+		<div id="notes">
+			<div class="panel_content">
+				<div id="board"></div>
+				<div id="flash"><p>hi</p></div>
+			</div>
+		</div>
+
+		<input id="chat_input" type="text"/>
+	</div>
 </body>
 </html>

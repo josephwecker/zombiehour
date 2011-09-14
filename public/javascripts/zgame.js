@@ -1,10 +1,13 @@
 
 var keyPresses = [];
 var command = null;
+var selector = undefined;
+var selected = undefined;
 var timing = true;
+var playerPos;
 //var queue_times = [];
 
-tileMap = new Array();
+var tileMap = new Array();
 tileMap['unknown']        = "   0px 0px";
 tileMap['blank']          = " -16px 0px";
 tileMap['wall']           = " -32px 0px";
@@ -17,6 +20,8 @@ tileMap['repairedWindow'] = "-128px 0px";
 tileMap['openWindow']     = "-144px 0px";
 tileMap['brokenWindow']   = "-160px 0px";
 tileMap['obstacle']       = "-176px 0px";
+
+var tileData = new Array();
 
 
 // hotkey assignments:
@@ -128,7 +133,7 @@ function tick_queue() {
 function update_stat(obj, value) {
   //alert(obj+" " +value);
   $("#"+obj).html(value);
-  $("#"+obj).change();
+  //$("#"+obj).change();
 }
 
 function open_chat() {
@@ -201,7 +206,7 @@ function show_anims(anim) {
 }
 
 function shift_tiles(direction, speed) {
-  var obj = $("#map")
+  var obj = $("#visible_area")
   var t = "-16px";
   var l = "-16px";
   switch( direction ) {
@@ -238,6 +243,9 @@ function shift_tiles(direction, speed) {
   }
   obj.css('left', l);
   obj.css('top',  t);
+  if (selected != undefined) {
+    select(selected);
+  }
 	obj.animate({left:"-16px",top:"-16px"}, speed*100, "linear");
 }
 
@@ -261,9 +269,9 @@ function build_map() {
   var table = new Array();
   var table2 = new Array();
   table[i] = table2[i] = '<table>';
-  for (y = 26; y > 0; y--) {
+  for (y = 0; y < 26; y++) {
     table[i++] = table2[i++] = '<tr>';
-    for (x = 0; x <= 25; x++) {
+    for (x = 26; x > 0; x--) {
       table[i++] = '<td id="'+x+'n'+y+'"></td>';
       table2[i++] = '<td id="'+x+'n'+y+'shadow"></td>';
     }
@@ -272,20 +280,57 @@ function build_map() {
   table[i++] = table2[i++] = '</table>';
   $("#map").html(table.join(''));
   $("#shadow").html(table2.join(''));
+  $("#shadow td").click(function() {
+    key = pos_to_key(playerPos, $(this).attr('id'));
+    select(tileData[key]);
+  });
+  $("#shadow td").click(function() {
+    key = pos_to_key(playerPos, $(this).attr('id'));
+    select(tileData[key]);
+  });
+
+  $("#shadow td").mouseenter(function() {
+    key = pos_to_key(playerPos, $(this).attr('id'));
+    quick_observe(tileData[key]);
+  });
+
+}
+
+function quick_observe(tile) {
+  $("#quick_observe").html("<h2>"+tile.symbol+"</h2>");
 }
 
 function update_map(mapdata) {
   if( mapdata != "nil" ) {
-    for (tile in mapdata.changes) {
-      newClass = mapdata.changes[tile].split('_');
-      if ( newClass[1] == "clear" ) {
-        $('#'+tile+'shadow').css('opacity','0');
+    
+    origin = key_to_coords(mapdata.origin);
+    playerPos = origin;
+    tilesToUpdate = update_tile_data(mapdata.changes, origin);
+    //size = 0;
+    tiles = tileData;
+
+    for( tileCount = 0; tileCount < tilesToUpdate.length; tileCount++ ) {
+      key = tilesToUpdate[tileCount];
+      tile = tiles[key];
+
+    //for( tile in tilesToUpdate ) {
+      pos = key_to_pos(origin, key);
+      //alert(pos);
+      if ( tile.visible ) {
+        $("#"+pos).css('opacity',1);
+        //$('#'+tile+'shadow').css('opacity','0');
       } else {
-        $('#'+tile+'shadow').css('opacity','1');
+        $("#"+pos).css('opacity',0);
+        //$('#'+tile+'shadow').css('opacity','1');
       }
-      $("#"+tile).css('background-position',tileMap[newClass[0]]);
+      $("#"+pos).css('background-position',tileMap[tile.symbol]);
       //table[tablePos] = '<td class="'+newClass[0]+'"></td>';
+    //size++;
     }
+    //alert(size);
+
+
+
       //alert(coords+", "+tablePos+", "+table[tablePos]);
     if (mapdata.moved != "false" ) {
       shift_tiles("walk_" + mapdata.moved, mapdata.speed);
@@ -298,6 +343,72 @@ function update_map(mapdata) {
   }
 }
 
+function update_tile_data(mapdata) {
+
+  tilesToUpdate = new Array();
+  count = 0;
+  tiles = tileData;
+  for( key in mapdata ) {
+    storedTile = tileData[key];
+    if( !storedTile ) {
+      storedTile = new Object();
+    }
+    newClass = mapdata[key].split('_');
+    tile = { key : key,
+             pos : key_to_pos(origin, key),
+             symbol :newClass[0] };
+    if ( newClass[1] == "clear" ) {
+      tile.visible = true;
+    } else {
+      tile.visible = false;
+    }
+    tileData[key] = tile;
+    tilesToUpdate[count] = key;
+    count++;
+  }
+       // alert(tilesToUpdate.length);
+
+  return tilesToUpdate;
+}
+
+
+
+function key_to_coords(key) {
+  return key.slice(1).split("Y");
+}
+
+function pos_to_coords(pos) {
+  return pos.split("n");
+}
+
+function key_to_pos(origin, key) {
+  coords = key_to_coords(key);
+  x = origin[0] - coords[0] + 13;
+  y = origin[1] - coords[1] + 13;
+  return x + "n" + y;
+}
+
+function pos_to_key(origin, pos) {
+  coords = pos_to_coords(pos);
+  x = 13 + parseInt(origin[0]) - parseInt(coords[0]);
+  y = 13 + parseInt(origin[1]) - parseInt(coords[1]);
+  return "X" + x + "Y" + y;
+}
+
+function test_conversions() {
+  var d = new Date();
+  start_time = d.getTime();
+
+  char_coords = key_to_coords("X30Y20");
+  for( i=0; i < 27 * 27; i++ ) {
+    key_to_pos(char_coords, "X20Y30");
+  }
+
+  var t = new Date();
+  alert(t.getTime() - start_time);
+}
+
+
 $(document).ready( function() {
     build_map();
     get_data();
@@ -308,6 +419,17 @@ $(document).ready( function() {
       filling.animate({left:'0px'}, cooldown.html()*100, 'linear');
     });
  //   update_queue();
+
+    $(".nav_button").hover(
+      function() { $(this).stop().animate({opacity:"1"},100); },
+      function() { $(this).stop().animate({opacity:"0.2"}, 1000); }
+    );
+    $(".nav_button").click( function() {
+      doCommand($(this).attr("id"));
+    });
+
+    //test_conversions();
+
 });
 
 function add_to_right() {
@@ -328,7 +450,7 @@ function add_to_left() {
     y = $(this).attr("id").slice(1);
     $(this).prepend('<td id="X'+x+'Y'+y+'"></td>');
     $(this).children().last().remove();
-  });
+  });	
 }
 function add_to_top() {
   map = $("#map");
@@ -369,4 +491,16 @@ function go_left(obj) {
 
 function go_right(obj) {
 	return (parseInt(obj.css("left")) + 16) + "px";
+}
+
+function select(tile) {
+  selected = tile;
+  if (selector == undefined) {
+    $("#visible_area").append($('<div id="selector" style="background:url(/images/selectors.png); height:20px; width:20px; position:absolute;"></div>'));
+    selector = $("#selector");
+  }
+  selectorPos = key_to_pos(playerPos, selected.key);
+  td = $('#'+selectorPos);
+  selector.css('left', td.position().left -2);
+  selector.css('top', td.position().top -2);
 }

@@ -57,36 +57,22 @@ a {
 	height:380px;
 	padding: 20px;
 }
-/*
-<div id="visibleArea" style="position:absolute;top:10px;left:10px;width:425;height:425;background-color:#eeeeee;overflow:hidden;">
-	<div id="map" style="position:absolute;top:0px;left:0px;"></div>
-	*/
 
-#screen {
-  position: absolute;
-  padding:0px;
-  left:149px;
-  height:420px;
-  width:420px;
-}
 #visible_area {
   position: absolute;
-  left:8px;
-  top:8px;
-  padding: 0px;
-  width: 400px;
-  height: 400px;
-  overflow: hidden;
-}
-#map, #shadow {
   margin: 0px;
   padding: 0px;
   width:432px;
   height:432px;
-  position: absolute;
+  background:none;
   left: -16px;
   top: -16px;
-  background: none;
+}
+#map, #shadow {
+  margin: 0px;
+  padding: 0px;
+  position: absolute;
+  background:none;
 }
 #map table, #shadow table { border-collapse: collapse; }
 
@@ -95,13 +81,16 @@ a {
 	width:16px;
 	height:16px;
 	background:url(/images/tiles.png);
+	opacity: 0;
 }
 
 #shadow td {
 	padding: 0px;
 	width:16px;
 	height:16px;
-	background:url(/images/shadow.png);
+	background-color: #101010;
+	opacity: 0;
+/*	background:url(/images/shadow2.png); */
 }
 
 #character {
@@ -114,16 +103,6 @@ a {
   background:url(/images/tiles.png) -208px, 0px;
 }
 
-
-#result {
-	position: absolute;
-	left: 570px;
-	width: 300px;
-	height: 380px;
-	padding: 20px;
-	overflow: auto;
-}
-
 #status {
 	position: absolute;
 	top: 429px;
@@ -132,7 +111,7 @@ a {
 	padding: 20px;
 }
 #flash {
-	float: right;
+	left: 336px;
 }
 
 #chat_input {
@@ -204,4 +183,122 @@ a {
 	font-family: 'DowncomeRegular';
 	font-size: 16px;
 	width: auto;
+}
+
+/*  Game Page Styles */
+#page {
+	position:absolute;
+	background:#202020;
+	width:1000px;
+	height:700px;
+	padding:16px;
+}
+
+.panel_content div, .panel_content {
+	background:none;
+}
+
+#page div {
+	position:absolute;
+	padding:0px;
+	margin:0px;
+}
+
+#stats {
+	top:32px;
+	left:32px;
+	width:186px;
+	height:400px;
+	max-height:400px;
+	background: #101010 url(/images/char_title.png) no-repeat top left;
+}
+#navigation {
+	top:32px;
+	left:219px;
+	width:400px;
+	height:400px;
+	background: #101010 url(/images/nav_title.png) no-repeat top left;
+	overflow: hidden;
+}
+#observation {
+	top:32px;
+	left:620px;
+	width:186px;
+	height:400px;
+	background: #101010 url(/images/obs_title.png) no-repeat top right;
+}
+#actions {
+	top:32px;
+	left:807px;
+	width:186px;
+	height:400px;
+	background: #101010 url(/images/act_title.png) no-repeat top right;
+}
+#dialog {
+	top:433px;
+	left:32px;
+	width:587px;
+	height:220px;
+	background: #101010 url(/images/dia_title.png) no-repeat bottom right;
+}
+	#result {
+		position: absolute;
+		width: 587px;
+		height: 220px;
+		padding: 20px;
+		overflow: auto;
+	}
+
+#notes {
+	top:433px;
+	left:620;
+	width:372px;
+	height:220px;
+	background: #101010 url(/images/note_title.png) no-repeat bottom right;
+}
+.panel_content {
+	padding:0px;
+	margin:16px;
+	margin-top:65px;
+}
+
+.nav_button {
+	height:50px;
+	width:50px;
+	background:url(/images/nav_buttons.png);
+	z-index:7;
+	opacity:0.2;
+}
+#north {
+	left:175px;
+}
+#northeast {
+	left:350px;
+	background-position: -50px 0px;
+}
+#east {
+	top:175px;
+	left:350px;
+	background-position: -100px 0px;
+}
+#southeast {
+	top:350px;
+	left:350px;
+	background-position: -150px 0px;
+}
+#south {
+	top:350px;
+	left:175px;
+	background-position: -200px 0px;
+}
+#southwest {
+	top:350px;
+	background-position: -250px 0px;
+}
+#west {
+	top:175px;
+	background-position: -300px 0px;
+}
+#northwest {
+	background-position: -350px 0px;
 }
