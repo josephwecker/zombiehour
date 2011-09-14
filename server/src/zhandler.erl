@@ -1,8 +1,13 @@
+% ZHandler Module
+% Misultin handler for all client to server communication
+% 
+
 -module(zhandler).
 -behavior(gen_server).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([broadcast/1, start/1, stop/0]).
 
+% Module Functions
 start(Attrs) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, Attrs, []).
 
@@ -22,9 +27,8 @@ create_scenario(Name) ->
 
 create_character(Cookie, {Name, Class}, Scenario) ->
   gen_server:cast(zhandler, {create_character, {Cookie, {Name, Class}, Scenario}}).
-% Start gen_server functions
 
-
+% Gen Server Functions
 init([Port]) ->
   % trap_exit -> this gen_server needs to be supervised
   process_flag(trap_exit, true),
@@ -115,19 +119,8 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
-
-% End GenServer Functions
-
- 
- 
-
-% Start Misultin Handlers
-
-
+% Misultin Handlers
 handle_http(Req) ->
-  %io:format("~p~n", [Req]),
-  %io:format("~p - ~p~n", [Req:get(method), Req:resource([lowercase, urldecode])]),
-  %io:format("~p~n", [Req:get(headers)]),
   case lists:keyfind('Cookie', 1, Req:get(headers)) of
     false -> 
       handle(nada, nada, nada, Req);
@@ -188,9 +181,7 @@ handle('GET', ["data"], Cookie, Req) ->
 handle(_,_,_,Req) ->
 	Req:respond(404, [{"Content-Type", "text/plain"}], "Page not found.").
 
-
-% End Misultin Handlers
-
+% Menu Template
 menu(Req, List) ->
   Menu = case List of
     [] ->

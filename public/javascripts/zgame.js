@@ -5,7 +5,8 @@ var selector = undefined;
 var selected = undefined;
 var timing = true;
 var playerPos;
-//var queue_times = [];
+var queue = [];
+var queued_destination;
 
 var tileMap = new Array();
 tileMap['unknown']        = "   0px 0px";
@@ -109,26 +110,10 @@ function doCommand(direction) {
     post(command, direction);
   } else {
     post("walk", direction);
+    add_to_queue(direction);
   }
   command = null;
 }
-
-/*
-function update_queue() {
-  $('#result').append( queue_times.length );
-  if( queue_times.length >= 1) {
-    t= setTimeout(tick_queue(), queue_times[0]);
-  } else {
-    t = setTimeout(update_queue(), 100);
-  }
-}
-
-function tick_queue() {
-  queue_times.shift();
-  $("#queue:first-child").remove();
-  update_queue();
-}
-*/
 
 function update_stat(obj, value) {
   //alert(obj+" " +value);
@@ -162,7 +147,6 @@ function post(param, value) {
     data: param + '=' + value
   });
 }
-
 
 //      http://localhost/game/[object Object]
 function get_data() {
@@ -247,6 +231,7 @@ function shift_tiles(direction, speed) {
     select(selected);
   }
 	obj.animate({left:"-16px",top:"-16px"}, speed*100, "linear");
+  step_queue();
 }
 
 function append_log(msg) {
@@ -295,6 +280,104 @@ function build_map() {
   });
 
 }
+
+function add_to_queue(direction) {
+  if( queued_destination == undefined ) {
+    queuedLocation = "X" + playerPos[0] + "Y" + playerPos[1];
+  } else {
+    queuedLocation = queued_destination;
+  }
+  
+  switch( direction ) {
+    case "northwest":
+      bg_pos = -24 * 0;
+      break;
+    case "north":
+      bg_pos = -24 * 1;
+      break;
+    case "northeast":
+      bg_pos = -24 * 2;
+      break;
+    case "east":
+      bg_pos = -24 * 3;
+      break;
+    case "southeast":
+      bg_pos = -24 * 4;
+      break;
+    case "south":
+      bg_pos = -24 * 5;
+      break;
+    case "southwest":
+      bg_pos = -24 * 6;
+      break;
+    case "west":
+      bg_pos = -24 * 7;
+      break;
+  }
+  queued_destination = find_neighbor(queuedLocation, direction);
+  td = $('#'+key_to_pos(playerPos, queuedLocation));
+  queued = $('<div style="background:url(/images/queue_arrows.png) '+bg_pos+'px 0px; height:24px; width:24px; position:absolute;"></div>');
+  queued.css('left', td.position().left -4);
+  queued.css('top', td.position().top -4);
+  queue[queue.length] = [queued, queuedLocation];
+  $("#visible_area").append(queued);
+}
+
+function step_queue() {
+  to_remove = queue[0][0];
+  to_remove.remove();
+  queue.splice(0,1);
+  l = queue.length;
+  for( i=0; i<l; i++ ) {
+    queued = queue[i][0];
+    queuePos = key_to_pos(playerPos, queue[i][1]);
+    td = $('#'+queuePos);
+    queued.css('left', td.position().left -4);
+    queued.css('top', td.position().top -4);
+  }
+}
+
+function find_neighbor(origin, direction) {
+  switch( direction ) {
+    case "northwest":
+      x_var = -1;
+      y_var =  1;
+      break;
+    case "north":
+      x_var =  0;
+      y_var =  1;
+      break;
+    case "northeast":
+      x_var =  1;
+      y_var =  1;
+      break;
+    case "east":
+      x_var =  1;
+      y_var =  0;
+      break;
+    case "southeast":
+      x_var =  1;
+      y_var = -1;
+      break;
+    case "south":
+      x_var =  0;
+      y_var = -1;
+      break;
+    case "southwest":
+      x_var = -1;
+      y_var = -1;
+      break;
+    case "west":
+      x_var = -1;
+      y_var =  0;
+      break;
+  }
+  coords = key_to_coords(origin);
+  new_coords = [parseInt(coords[0]) + x_var, parseInt(coords[1]) + y_var];
+  neighbor = "X" + new_coords[0] + "Y" + new_coords[1];
+  return neighbor;
+}
+
 
 function quick_observe(tile) {
   $("#quick_observe").html("<h2>"+tile.symbol+"</h2>");
@@ -371,8 +454,6 @@ function update_tile_data(mapdata) {
   return tilesToUpdate;
 }
 
-
-
 function key_to_coords(key) {
   return key.slice(1).split("Y");
 }
@@ -408,7 +489,6 @@ function test_conversions() {
   alert(t.getTime() - start_time);
 }
 
-
 $(document).ready( function() {
     build_map();
     get_data();
@@ -418,7 +498,6 @@ $(document).ready( function() {
       filling.css('left',cooldown.html()*2);
       filling.animate({left:'0px'}, cooldown.html()*100, 'linear');
     });
- //   update_queue();
 
     $(".nav_button").hover(
       function() { $(this).stop().animate({opacity:"1"},100); },
@@ -431,51 +510,6 @@ $(document).ready( function() {
     //test_conversions();
 
 });
-
-function add_to_right() {
-  map = $("#map");
-  map.css("left", ((parseInt(map.css("left")) + 16) + "px"));
-  x = parseInt( $("#map tr:first td:last").attr("id").slice(1) ) + 1;
-  $("#map tr").each( function() {
-    y = $(this).attr("id").slice(1);
-    $(this).append('<td id="X'+x+'Y'+y+'"></td>');
-    $(this).children().first().remove();
-  });
-}
-function add_to_left() {
-  map = $("#map");
-  map.css("left", ((parseInt(map.css("left")) - 16) + "px"));
-  x = parseInt( $("#map tr:first td:first").attr("id").slice(1) ) - 1;
-  $("#map tr").each( function() {
-    y = $(this).attr("id").slice(1);
-    $(this).prepend('<td id="X'+x+'Y'+y+'"></td>');
-    $(this).children().last().remove();
-  });	
-}
-function add_to_top() {
-  map = $("#map");
-  map.css("top", ((parseInt(map.css("top")) - 16) + "px"));
-  x1 = parseInt( $("#map tr:first td:first").attr("id").slice(1) );
-  x2 = parseInt( $("#map tr:first td:last").attr("id").slice(1) );
-  y  = parseInt( $("#map tr:first").attr("id").slice(1) ) +1;
-  $("#map").prepend('<tr></tr>');
-  for ( x = x1; x <= x2; x++ ) {
-    $("#map tr:first").append('<td id="X'+x+'Y'+y+'"></td>');
-  }
-	$("#map tr:last").remove();
-}
-function add_to_bottom() {
-  map = $("#map");
-  map.css("top", ((parseInt(map.css("top")) + 16) + "px"));
-  x1 = parseInt( $("#map tr:first td:first").attr("id").slice(1) );
-  x2 = parseInt( $("#map tr:first td:last").attr("id").slice(1) );
-  y  = parseInt( $("#map tr:last").attr("id").slice(1) ) -1;
-  $("#map").append('<tr></tr>');
-  for ( x = x1; x <= x2; x++ ) {
-    $("#map tr:last").append('<td id="X'+x+'Y'+y+'"></td>');
-  }
-	$("#map tr:first").remove();
-}
 
 function go_up(obj) {
 	return (parseInt(obj.css("top")) - 16) + "px";
