@@ -1,7 +1,14 @@
 Zombiehour::Application.routes.draw do
 
 
+  resources :subscribers
+
   root :to => "intro#index"
+
+  match 'feedback' => 'feedbacks#new'
+  match 'submit_feedback' => 'feedbacks#create'
+  match 'submitted_feedback' => 'feedbacks#thanks'
+
 
   match 'controls' => "intro#controls"
   match 'contact' => "intro#contact"
@@ -18,6 +25,8 @@ Zombiehour::Application.routes.draw do
   resources :characters
  
   namespace :admin do
+    match 'feedback' => 'feedbacks#index'
+    match 'remove_feedback/:id' => 'feedbacks#destroy'
     resources :items
     resources :apparels
     resources :weapons

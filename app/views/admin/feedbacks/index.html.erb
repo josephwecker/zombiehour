@@ -1,0 +1,22 @@
+<h1>Listing feedbacks</h1>
+
+<table>
+  <tr>
+    <th>Content</th>
+    <th>Author</th>
+    <th>Rating</th>
+    <th></th>
+    <th></th>
+    <th></th>
+  </tr>
+
+<% @feedbacks.each do |feedback| %>
+  <tr>
+    <td><%= feedback.content %></td>
+    <td><%= feedback.author %></td>
+    <td><%= feedback.rating %></td>
+    <td><%= link_to 'Remove', 'remove_feedback/'+feedback.id.to_s, :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
